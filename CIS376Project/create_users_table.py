@@ -4,6 +4,13 @@ db = sqlite3.connect('project.db')
 cursor = db.cursor()
 
 
+try:
+    cursor.execute('DROP TABLE users')
+    db.commit()
+except sqlite3.OperationalError as e:
+    print(f'Database Error: {e}')
+
+
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
