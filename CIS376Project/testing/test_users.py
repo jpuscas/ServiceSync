@@ -1,29 +1,14 @@
 import sqlite3
 import pytest
+from database.schema import create_database
 
 
 def setup_db():
     db = sqlite3.connect(':memory:')
     cursor = db.cursor()
 
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        phone TEXT,
+    create_database(cursor)
 
-        password TEXT NOT NULL,
-
-        role TEXT NOT NULL DEFAULT 'member',
-
-        is_verified INTEGER NOT NULL DEFAULT 0,
-        verification_code TEXT,
-
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    ''')
     db.commit()
     return db, cursor
 
@@ -102,6 +87,10 @@ def test_null_password():
 def test_default_role():
     db, cursor = setup_db()
 
+    cursor.execute('''
+            INSERT INTO users (username, email, password)
+            VALUES (?,?,?)
+            ''', ('test_user', 'test@email.com', 'test_password'))
+
     cursor.execute('''SELECT username, role FROM users WHERE username = ?''', ('test_user',))
     rows = cursor.fetchone()
-    print(rows)
