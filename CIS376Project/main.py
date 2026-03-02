@@ -8,6 +8,12 @@ def initialize_database():
     create_database(cursor)
 
     db.commit()
+    
+    # Verify table was created
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = cursor.fetchall()
+    print(f'Tables in database: {tables}')
+    
     db.close()
 
 if __name__ == '__main__':
