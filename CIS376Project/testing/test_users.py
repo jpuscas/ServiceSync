@@ -1,6 +1,7 @@
 import sqlite3
 import pytest
 from database.schema import create_database
+from features.users.user_verification import set_verification_code, verify_user
 from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email
 
 
@@ -152,3 +153,30 @@ def test_delete_user():
     deleted_user = authenticate_user(cursor, 'test_user', 'password1')
 
     assert deleted_user is False
+
+def test_verify_user():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor,1, token)
+    db.commit()
+
+    result = verify_user(cursor, token)
+    db.commit()
+
+    assert result is True
+
+    cursor.execute('''
+    SELECT is_verified, verification_token FROM users
+    WHERE username = ?''', ('test_user',))
+    row = cursor.fetchone()
+
+    assert row[0] == 1
+    assert row [1] is None
+
+# test incorrect code
+# test verify non-existing username
+# test already verified user

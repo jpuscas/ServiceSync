@@ -13,7 +13,7 @@ def create_users_table(cursor):
         role TEXT NOT NULL DEFAULT 'member',
         
         is_verified INTEGER NOT NULL DEFAULT 0,
-        verification_code TEXT,
+        verification_token TEXT UNIQUE,
         
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
