@@ -1,6 +1,7 @@
 import sqlite3
 import pytest
 from database.schema import create_database
+from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email
 
 
 def setup_db():
@@ -94,3 +95,60 @@ def test_default_role():
 
     cursor.execute('''SELECT username, role FROM users WHERE username = ?''', ('test_user',))
     rows = cursor.fetchone()
+
+def test_authentication_success():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@email.com', 'password1')
+    db.commit()
+
+    user = authenticate_user(cursor, 'test_user', 'password1')
+
+    assert user is not False
+
+def test_update_password():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    user = authenticate_user(cursor, 'test_user', 'password1')
+    user_id = user[0]
+
+    update_password(cursor, user_id, 'password22')
+    db.commit()
+
+    new_authenticate = authenticate_user(cursor, 'test_user', 'password22')
+    assert new_authenticate is not False
+
+def test_update_email():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    user = authenticate_user(cursor, 'test_user', 'password1')
+    user_id = user[0]
+
+    update_email(cursor, user_id, 'stilltesting@gmail.com')
+    db.commit()
+
+    cursor.execute('''SELECT username, email FROM users WHERE username = ?''', ('test_user',))
+    rows = cursor.fetchone()
+    print(rows)
+
+def test_delete_user():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    user = authenticate_user(cursor, 'test_user', 'password1')
+    user_id = user[0]
+
+    delete_user(cursor, user_id)
+    db.commit()
+
+    deleted_user = authenticate_user(cursor, 'test_user', 'password1')
+
+    assert deleted_user is False
