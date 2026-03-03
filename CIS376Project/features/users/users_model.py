@@ -41,20 +41,37 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
 
 def authenticate_user(cursor, username: str, password: str):
     cursor.execute('''
-    SELECT * FROM users WHERE username = ?
+    SELECT id, username, password, is_verified
+    FROM users 
+    WHERE username = ?
     ''', (username,))
 
     user = cursor.fetchone()
 
     if not user:
-        return False
+        return None
 
-    stored_hash = user[4] #password in table schema
+    stored_hash = user[2] #password in table schema
 
-    if verify_password(password, stored_hash):
-        return user
+    if not verify_password(password, stored_hash):
+        return None
 
-    return False
+    return {
+        "id": user[0],
+        "username": user[1],
+        'is_verified': user[3]
+    }
+
+def login_user(cursor, username: str, password: str):
+    user = authenticate_user(cursor, username, password)
+
+    if not user:
+        return 'Invalid credentials.'
+
+    if user['is_verified'] == 0:
+        return 'User not verified.'
+
+    return 'Login user.'
 
 def get_user_by_id(cursor, user_id: int):
     cursor.execute('''

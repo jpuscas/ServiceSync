@@ -2,7 +2,8 @@ import sqlite3
 import pytest
 from database.schema import create_database
 from features.users.user_verification import set_verification_code, verify_user
-from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email
+from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email, \
+    login_user
 
 
 def setup_db():
@@ -96,6 +97,7 @@ def test_default_role():
 
     cursor.execute('''SELECT username, role FROM users WHERE username = ?''', ('test_user',))
     rows = cursor.fetchone()
+    print(rows)
 
 def test_authentication_success():
     db, cursor = setup_db()
@@ -175,8 +177,127 @@ def test_verify_user():
     row = cursor.fetchone()
 
     assert row[0] == 1
-    assert row [1] is None
+    assert row[1] is None
 
-# test incorrect code
-# test verify non-existing username
-# test already verified user
+def test_incorrect_code():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor,1, token)
+    db.commit()
+
+    result = verify_user(cursor, 'c91Dtqf5Z4D8iSYAGA22-zimno4UuyczbV077QExxE0')
+    db.commit()
+
+    assert result is False
+
+    cursor.execute('''
+    SELECT is_verified, verification_token FROM users
+    WHERE username = ?''', ('test_user',))
+    row = cursor.fetchone()
+
+    assert row[0] == 0
+    assert row[1] == '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+
+
+def test_verify_nonexisting_username():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    result = verify_user(cursor, 'token')
+    db.commit()
+
+    assert result is False
+
+def test_already_verified_user():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor, 1, token)
+    db.commit()
+
+    verify_user(cursor, token)
+    db.commit()
+
+    new_result = verify_user(cursor, token)
+    db.commit()
+
+    assert new_result is False
+
+    cursor.execute('''
+        SELECT is_verified, verification_token FROM users
+        WHERE username = ?''', ('test_user',))
+    row = cursor.fetchone()
+
+    assert row[0] == 1
+    assert row[1] is None
+
+def test_successful_login():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor, 1, token)
+
+    verify_user(cursor, token)
+    db.commit()
+
+    login = login_user(cursor, 'test_user', 'password1')
+
+    assert login == 'Login user.'
+
+def test_wrong_password_login():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor, 1, token)
+
+    verify_user(cursor, token)
+    db.commit()
+
+    login = login_user(cursor, 'test_user', 'wordpass24')
+
+    assert login == 'Invalid credentials.'
+
+def test_not_verified_login():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor, 1, token)
+    db.commit()
+
+    login = login_user(cursor, 'test_user', 'password1')
+
+    assert login == 'User not verified.'
+
+def test_nonexistant_user_login():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    db.commit()
+
+    token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
+    set_verification_code(cursor, 1, token)
+
+    verify_user(cursor, token)
+    db.commit()
+
+    login = login_user(cursor, 'not_test_user', 'password1')
+
+    assert login == 'Invalid credentials.'
