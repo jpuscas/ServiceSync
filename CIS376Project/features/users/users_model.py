@@ -57,21 +57,10 @@ def authenticate_user(cursor, username: str, password: str):
         return None
 
     return {
-        "id": user[0],
-        "username": user[1],
+        'id': user[0],
+        'username': user[1],
         'is_verified': user[3]
     }
-
-def login_user(cursor, username: str, password: str):
-    user = authenticate_user(cursor, username, password)
-
-    if not user:
-        return 'Invalid credentials.'
-
-    if user['is_verified'] == 0:
-        return 'User not verified.'
-
-    return 'Login user.'
 
 def get_user_by_id(cursor, user_id: int):
     cursor.execute('''

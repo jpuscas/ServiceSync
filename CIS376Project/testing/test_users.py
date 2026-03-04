@@ -2,8 +2,8 @@ import sqlite3
 import pytest
 from database.schema import create_database
 from features.users.user_verification import set_verification_code, verify_user
-from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email, \
-    login_user
+from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email
+from features.users.login_logic import login_user
 
 
 def setup_db():
@@ -116,7 +116,7 @@ def test_update_password():
     db.commit()
 
     user = authenticate_user(cursor, 'test_user', 'password1')
-    user_id = user[0]
+    user_id = user['id']
 
     update_password(cursor, user_id, 'password22')
     db.commit()
@@ -131,7 +131,7 @@ def test_update_email():
     db.commit()
 
     user = authenticate_user(cursor, 'test_user', 'password1')
-    user_id = user[0]
+    user_id = user['id']
 
     update_email(cursor, user_id, 'stilltesting@gmail.com')
     db.commit()
@@ -147,14 +147,14 @@ def test_delete_user():
     db.commit()
 
     user = authenticate_user(cursor, 'test_user', 'password1')
-    user_id = user[0]
+    user_id = user['id']
 
     delete_user(cursor, user_id)
     db.commit()
 
     deleted_user = authenticate_user(cursor, 'test_user', 'password1')
 
-    assert deleted_user is False
+    assert deleted_user is None
 
 def test_verify_user():
     db, cursor = setup_db()
@@ -254,7 +254,7 @@ def test_successful_login():
 
     login = login_user(cursor, 'test_user', 'password1')
 
-    assert login == 'Login user.'
+    assert login['success'] == True
 
 def test_wrong_password_login():
     db, cursor = setup_db()
@@ -270,7 +270,8 @@ def test_wrong_password_login():
 
     login = login_user(cursor, 'test_user', 'wordpass24')
 
-    assert login == 'Invalid credentials.'
+    assert login['success'] == False
+    assert login['message'] == 'Invalid username and/or password.'
 
 def test_not_verified_login():
     db, cursor = setup_db()
@@ -284,7 +285,8 @@ def test_not_verified_login():
 
     login = login_user(cursor, 'test_user', 'password1')
 
-    assert login == 'User not verified.'
+    assert login['success'] == False
+    assert login['message'] == 'Account not verified. '
 
 def test_nonexistant_user_login():
     db, cursor = setup_db()
@@ -300,4 +302,5 @@ def test_nonexistant_user_login():
 
     login = login_user(cursor, 'not_test_user', 'password1')
 
-    assert login == 'Invalid credentials.'
+    assert login['success'] == False
+    assert login['message'] == 'Invalid username and/or password.'
