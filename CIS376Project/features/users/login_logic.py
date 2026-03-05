@@ -9,7 +9,7 @@ def login_user(cursor, username, password):
 
     if not user['is_verified']:
         return { 'success': False,
-                 'message': 'Account not verified. ' }
+                 'message': 'Account not verified.' }
 
     return{
         'success': True,

@@ -62,6 +62,13 @@ def authenticate_user(cursor, username: str, password: str):
         'is_verified': user[3]
     }
 
+def get_username_by_email(cursor, email: str):
+    cursor.execute('''
+    SELECT username FROM users WHERE email = ?
+    ''', (email,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
 def get_user_by_id(cursor, user_id: int):
     cursor.execute('''
     SELECT * FROM users WHERE id = ?
