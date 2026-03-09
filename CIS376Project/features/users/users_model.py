@@ -27,6 +27,8 @@ def create_user(cursor, username: str, email: str, password: str): #other object
     INSERT INTO users (username, email, password)
     VALUES (?, ?, ?)    
     ''', (username, email, hashed_password))
+    
+    return cursor.lastrowid
 
 def hash_password(password: str) -> str:
     password_bytes = password.encode ('utf-8')

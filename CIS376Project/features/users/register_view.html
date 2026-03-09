@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
+    <title>Register</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +14,7 @@
             height: 100vh;
         }
 
-        .login-box {
+        .register-box {
             background: white;
             padding: 40px;
             width: 350px;
@@ -56,6 +56,12 @@
             margin-bottom: 10px;
         }
 
+        .success {
+            color: green;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
         .company-header {
             text-align: center;
             margin-bottom: 80px;
@@ -63,30 +69,40 @@
             font-size: 75px;
             font-weight: bold;
         }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #4e73df;
+            text-decoration: none;
+        }
     </style>
 </head>
 
 <body>
 <div class="company-header">Service Scheduler</div>
 
+<div class="register-box">
+    <h2>Register</h2>
 
-<div class="login-box">
-    <h2>Login</h2>
-
-    <!-- Error message placeholder -->
+    <!-- Message placeholder -->
     {% if message %}
-        <div class="error">{{ message }}</div>
+        <div class="{% if 'created' in message.lower() or 'exists' in message.lower() and 'signing in' in message.lower() %}success{% else %}error{% endif %}">{{ message }}</div>
     {% endif %}
 
-    <form method="POST" action="/login">
+    <form method="POST" action="/register">
         <input type="text" name="username" placeholder="Username" required>
+        <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
-        <button type="submit">Login</button>
+        <button type="submit">Register</button>
     </form>
 
-    <p style="text-align: center; margin-top: 15px;">
-        Don't have an account? <a href="/register" style="color: #4e73df; text-decoration: none;">Sign up</a>
-    </p>
+    <div class="back-link">
+        <a href="/login">Back to Login</a>
+    </div>
 
 </div>
 

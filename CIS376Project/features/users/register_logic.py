@@ -1,6 +1,7 @@
 import sqlite3
 from features.users.users_model import create_user, get_username_by_email
 from features.users.login_logic import login_user
+from features.users.user_verification import generate_verification_token, set_verification_code
 
 def register_user(cursor, username: str, email: str, password: str):
     username = (username or "").strip()
@@ -31,11 +32,14 @@ def register_user(cursor, username: str, email: str, password: str):
 
     #account is created unless the username is taken.
     try:
-        create_user(cursor, username, email, password)
+        user_id = create_user(cursor, username, email, password)
+        token = generate_verification_token()
+        set_verification_code(cursor, user_id, token)
         return{
             "success": True,
             "already_exists": False,
-            "message": "Account created."
+            "message": "Account created. Please check your email for verification instructions.",
+            "token": token
         }
     except sqlite3.IntegrityError:
         return{
