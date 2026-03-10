@@ -1,5 +1,4 @@
 import sqlite3
-import pytest
 from database.schema import create_database
 from features.songs.songs_model import (search_song, update_song, delete_song,
                                         get_song_by_id, create_song)
@@ -25,7 +24,7 @@ def test_valid_song():
     rows = cursor.fetchall()
     assert len(rows) == 1
 
-def test_retrieve_song():
+def test_get_song_by_id():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',

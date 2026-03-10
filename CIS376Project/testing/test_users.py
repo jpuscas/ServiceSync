@@ -286,7 +286,7 @@ def test_not_verified_login():
     login = login_user(cursor, 'test_user', 'password1')
 
     assert login['success'] == False
-    assert login['message'] == 'Account not verified. '
+    assert login['message'] == 'Account not verified.'
 
 def test_nonexistant_user_login():
     db, cursor = setup_db()
