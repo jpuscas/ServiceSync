@@ -28,7 +28,7 @@ def create_user(cursor, username: str, email: str, password: str): #other object
     VALUES (?, ?, ?)    
     ''', (username, email, hashed_password))
     
-    return cursor.lastrowid
+    return cursor.lastrowid #are we making this single organizational or multi?
 
 def hash_password(password: str) -> str:
     password_bytes = password.encode ('utf-8')
