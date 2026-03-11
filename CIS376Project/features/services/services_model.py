@@ -1,10 +1,11 @@
-from datetime import datetime
+from .standard_datetime import normalize_date, normalize_time
 
 def create_services_table(cursor):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS services (
         service_id INTEGER PRIMARY KEY AUTOINCREMENT,
         service_name TEXT NOT NULL,
+        service_type TEXT NOT NULL, 
         service_date DATE NOT NULL,
         service_time TIME NOT NULL,
         leader_id INTEGER,
@@ -12,31 +13,23 @@ def create_services_table(cursor):
         );
     ''')
 
-def create_service(cursor, service_name: str, service_date, service_time, leader_id: int):
-   cursor.execute('''
-   INSERT INTO services (service_name, service_date, service_time, leader_id)
-   VALUES (?, ?, ?, ?)
-   ''', (service_name, service_date, service_time, leader_id))
+def create_service(cursor, service_name: str, service_type, service_date, service_time, leader_id: int):
 
-def format_service_datetime(service_date, service_time):  # idk if this format can be used for front end
-    dt = datetime.strptime(f"{service_date} {service_time}", "%Y-%m-%d %H:%M")
-    return dt.strftime("%-m/%-d/%y, %-I:%M %p")
+    service_date = normalize_date(service_date)
+    service_time = normalize_time(service_time)
 
-def get_service_by_id(cursor, service_id): # how do we want to get services?
+    cursor.execute('''
+    INSERT INTO services (service_name, service_type, service_date, service_time, leader_id)
+    VALUES (?, ?, ?, ?, ?)
+    ''', (service_name, service_type, service_date, service_time, leader_id))
+
+def get_service_by_type(cursor, service_type):
     cursor.execute('''
     SELECT * FROM services
-    WHERE service_id = ?
-    ''', (service_id,))
+    WHERE service_type = ?
+    ''', (service_type,))
     row = cursor.fetchone()
-
-    if not row:
-        return None
-
-    service = dict(row)
-    service["formatted_time"] = format_service_datetime(
-        service["service_date"], service["service_time"]
-    )
-    return service
+    return row if row else None
 
 def search_service(cursor, search_term):
     cursor.execute('''
@@ -54,15 +47,16 @@ def list_services(cursor):
     ''')
     return cursor.fetchall()
 
-def update_service(cursor, service_id, service_name, service_date, service_time, leader_id):
+def update_service(cursor, service_id, service_type, service_name, service_date, service_time, leader_id):
     cursor.execute('''
     UPDATE services
-    SET service_name = ?, 
+    SET service_name = ?,
+    service_type = ?, 
     service_date = ?,
     service_time = ?,
     leader_id = ?
     WHERE service_id = ?
-    ''',(service_name, service_date, service_time, leader_id, service_id))
+    ''',(service_name, service_type, service_date, service_time, leader_id, service_id))
 
 def delete_service(cursor, service_id):
     cursor.execute('''
