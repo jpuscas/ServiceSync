@@ -1,7 +1,8 @@
 import sqlite3
+import pytest
 from database.schema import create_database
 from features.songs.songs_model import (search_song, update_song, delete_song,
-                                        get_song_by_id, create_song)
+                                        get_song_by_id, create_song, list_songs)
 
 
 def setup_db():
@@ -31,12 +32,7 @@ def test_get_song_by_id():
                 120, 'youtube.com/amazinggrace')
     db.commit()
 
-    cursor.execute('''
-    SELECT song_id, title, artist FROM songs
-    WHERE song_id = ?
-    ''', (1,))
-
-    row = cursor.fetchone()
+    row = get_song_by_id(cursor, 1)
 
     assert row[1] == 'Amazing Grace'
     assert row[2] == 'Chris Tomlin'
@@ -64,6 +60,21 @@ def test_get_song_by_artist():
 
     assert len(results) == 1
     assert results[0][2] == 'Chris Tomlin'
+
+def test_list_songs():
+    db, cursor = setup_db()
+
+    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
+                120, 'youtube.com/amazinggrace')
+    create_song(cursor, 'How He Loves', 'Chris Tomlin', 'C',
+                80, 'youtube.com/howheloves')
+    db.commit()
+
+    rows = list_songs(cursor)
+
+    assert len(rows) == 2
+    assert rows[0][1] == 'Amazing Grace'
+    assert rows[1][1] == 'How He Loves'
 
 def test_search_song_not_found():
     db, cursor = setup_db()

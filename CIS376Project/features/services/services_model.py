@@ -27,14 +27,15 @@ def get_service_by_type(cursor, service_type):
     cursor.execute('''
     SELECT * FROM services
     WHERE service_type = ?
+    ORDER BY service_date, service_time
     ''', (service_type,))
-    row = cursor.fetchone()
-    return row if row else None
+    return cursor.fetchall()
 
 def search_service(cursor, search_term):
     cursor.execute('''
     SELECT * FROM services
     WHERE service_name LIKE ?
+    ORDER BY service_date, service_time
     ''', (f"%{search_term}%",))
     return cursor.fetchall()
 
@@ -42,12 +43,16 @@ def list_services(cursor):
     cursor.execute('''
     SELECT s.*, u.username AS leader_name
     FROM services s
-    LEFT JOIN users u ON s.leader_id = u.user_id
+    LEFT JOIN users u ON s.leader_id = u.id
     ORDER BY service_date, service_time
     ''')
     return cursor.fetchall()
 
-def update_service(cursor, service_id, service_type, service_name, service_date, service_time, leader_id):
+def update_service(cursor, service_id, service_name, service_type, service_date, service_time, leader_id):
+
+    service_date = normalize_date(service_date)
+    service_time = normalize_time(service_time)
+
     cursor.execute('''
     UPDATE services
     SET service_name = ?,
@@ -58,7 +63,8 @@ def update_service(cursor, service_id, service_type, service_name, service_date,
     WHERE service_id = ?
     ''',(service_name, service_type, service_date, service_time, leader_id, service_id))
 
-def delete_service(cursor, service_id):
+def delete_service(cursor, service_id: int):
     cursor.execute('''
-    DELETE FROM services WHERE service_id = ?
+    DELETE FROM services 
+    WHERE service_id = ?
     ''', (service_id,))

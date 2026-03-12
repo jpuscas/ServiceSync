@@ -26,7 +26,7 @@ def get_song_by_id(cursor, song_id):
     row = cursor.fetchone()
     return row if row else None
 
-def get_all_songs(cursor):
+def list_songs(cursor):
     cursor.execute('SELECT * FROM songs')
     rows = cursor.fetchall()
     return rows

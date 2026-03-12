@@ -29,5 +29,10 @@ def normalize_time(time_str):
 
 def format_service_datetime(service_date, service_time):  # idk if this format can be used for front end
     dt = datetime.strptime(f"{service_date} {service_time}", "%Y-%m-%d %H:%M")
-    formatted = dt.strftime("%-m/%-d/%y, %-I:%M %p")
-    return formatted.lstrip("0").replace("/0", "/")
+
+    month = dt.month
+    day = dt.day
+    year = dt.strftime('%y')
+    time = dt.strftime('%I:%M %p').lstrip('0')
+
+    return f'{month}/{day}/{year}, {time}'
