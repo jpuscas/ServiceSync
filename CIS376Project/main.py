@@ -12,7 +12,7 @@ def initialize_database():
     # Verify table was created
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = cursor.fetchall()
-    print(f'Tables in database: {tables}')
+    print([row['name'] for row in tables])
     
     db.close()
 
