@@ -96,6 +96,14 @@ def update_email(cursor, user_id: int, new_email: str):
     WHERE id = ?
     ''', (new_email, user_id))
 
+def set_role(cursor, user_id: int, new_role: str):
+    cursor.execute('''
+    UPDATE users
+    SET role = ?, 
+    updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    ''', (new_role, user_id))
+
 def delete_user(cursor, user_id: int):
     cursor.execute('''
     DELETE FROM users WHERE id = ?
