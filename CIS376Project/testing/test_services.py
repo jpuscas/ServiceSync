@@ -6,6 +6,7 @@ from features.services.services_model import (create_service, get_service_by_typ
 
 def setup_db():
     db = sqlite3.connect(':memory:')
+    db.row_factory = sqlite3.Row
     cursor = db.cursor()
 
     create_database(cursor)
@@ -35,8 +36,8 @@ def test_normalized_input():
            WHERE service_id = ?''', (1,))
     row = cursor.fetchone()
 
-    assert row[0] == '2026-03-08'
-    assert row[1] == '09:30'
+    assert row['service_date'] == '2026-03-08'
+    assert row['service_time'] == '09:30'
 
 def test_invalid_date_handling():
     db, cursor = setup_db()
@@ -64,8 +65,8 @@ def test_get_service_by_type():
     rows = get_service_by_type(cursor, 'Worship')
 
     assert len(rows) == 2
-    assert rows[0][1] == 'Sunday Worship'
-    assert rows[1][1] == 'Sunday Worship'
+    assert rows[0]['service_name'] == 'Sunday Worship'
+    assert rows[1]['service_name'] == 'Sunday Worship'
 
 def test_list_services():
     db, cursor = setup_db()
@@ -79,8 +80,8 @@ def test_list_services():
     rows = list_services(cursor)
 
     assert len(rows) == 2
-    assert rows[0][1] == 'Sunday Worship'
-    assert rows[1][1] == 'Youth Group'
+    assert rows[0]['service_name'] == 'Sunday Worship'
+    assert rows[1]['service_name'] == 'Youth Group'
 
 def test_search_service_by_name():
     db, cursor = setup_db()
@@ -92,7 +93,7 @@ def test_search_service_by_name():
     results = search_service(cursor, 'Sunday')
 
     assert len(results) == 1
-    assert results[0][1] == 'Sunday Worship'
+    assert results[0]['service_name'] == 'Sunday Worship'
 
 def test_search_service_by_case():
     db, cursor = setup_db()
@@ -104,7 +105,7 @@ def test_search_service_by_case():
     results = search_service(cursor, 'sunday')
 
     assert len(results) == 1
-    assert results[0][1] == 'Sunday Worship'
+    assert results[0]['service_name'] == 'Sunday Worship'
 
 def test_search_service_not_found():
     db, cursor = setup_db()
@@ -146,7 +147,7 @@ def test_update_service():
         WHERE service_id = ?''', (1,))
     rows = cursor.fetchone()
 
-    assert rows[1] == '10:00'
+    assert rows['service_time'] == '10:00'
 
 def test_delete_service():
     db, cursor = setup_db()
@@ -188,9 +189,11 @@ def test_full_service_test():
     assert len(service_list) == 1
     assert service_list[0][4] == '09:30'
 
-    update_service(cursor, 1, 'Sunday Worship', 'Worship',
+    new_service = update_service(cursor, 1, 'Sunday Worship', 'Worship',
                    '2026-03-08', '09:45', 1)
     db.commit()
+
+    assert new_service[0][4] == '09:45'
 
     delete_service(cursor, 1)
     db.commit()

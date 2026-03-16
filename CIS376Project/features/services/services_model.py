@@ -9,7 +9,7 @@ def create_services_table(cursor):
         service_date DATE NOT NULL,
         service_time TIME NOT NULL,
         leader_id INTEGER,
-        FOREIGN KEY (leader_id) REFERENCES users(user_id)
+        FOREIGN KEY (leader_id) REFERENCES users(id)
         );
     ''')
 

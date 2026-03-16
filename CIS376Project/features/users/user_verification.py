@@ -27,7 +27,7 @@ def verify_user(cursor, token: str):
         SET is_verified = 1,
         verification_token = NULL
         WHERE id = ?
-        ''', (row[0],))
+        ''', (row['id'],))
         return True
 
     return False

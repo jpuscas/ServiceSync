@@ -1,4 +1,6 @@
 import sqlite3
+import pytest
+from database.connection import get_connection
 from database.schema import create_database
 from features.users.users_model import create_user
 from features.services.services_model import create_service
@@ -7,9 +9,7 @@ from features.services.service_musicians_model import (assign_musician, get_musi
                                                        update_musician, delete_musician)
 
 def setup_db():
-    db = sqlite3.connect(':memory:')
-    db.row_factory = sqlite3.Row
-    cursor = db.cursor()
+    db, cursor = get_connection(':memory:')
 
     create_database(cursor)
 

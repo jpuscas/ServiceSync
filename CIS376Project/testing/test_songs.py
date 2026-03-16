@@ -4,9 +4,9 @@ from database.schema import create_database
 from features.songs.songs_model import (search_song, update_song, delete_song,
                                         get_song_by_id, create_song, list_songs)
 
-
 def setup_db():
     db = sqlite3.connect(':memory:')
+    db.row_factory = sqlite3.Row
     cursor = db.cursor()
 
     create_database(cursor)
@@ -34,8 +34,8 @@ def test_get_song_by_id():
 
     row = get_song_by_id(cursor, 1)
 
-    assert row[1] == 'Amazing Grace'
-    assert row[2] == 'Chris Tomlin'
+    assert row['title'] == 'Amazing Grace'
+    assert row['artist'] == 'Chris Tomlin'
 
 def test_get_song_by_title():
     db, cursor = setup_db()
@@ -79,18 +79,60 @@ def test_list_songs():
 def test_search_song_not_found():
     db, cursor = setup_db()
 
-    results = search_song(cursor, "Nothing")
+    results = search_song(cursor, 'Nothing')
 
     assert len(results) == 0
+
+def test_special_character():
+    db, cursor = setup_db()
+
+    create_song(cursor, "He's Amazing", 'Chris Tomlin', 'C',
+                80, 'youtube.com')
+    db.commit()
+
+    results = search_song(cursor, "He's")
+
+    assert len(results) == 1
+    assert results[0][1] == "He's Amazing"
+
+def test_default_tempo_none():
+    db, cursor = setup_db()
+
+    song_id = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'C',
+                None, 'youtube.com')
+    db.commit()
+
+    assert song_id is not None
+
+    cursor.execute("SELECT default_tempo FROM songs WHERE song_id = ?", (song_id,))
+    row = cursor.fetchone()
+    assert row['default_tempo'] is None
+
+    results = search_song(cursor, 'Amazing')
+
+    assert len(results) == 1
+    assert results[0]['default_tempo'] is None
+
+def test_duplicate_song():
+    db, cursor = setup_db()
+
+    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
+    db.commit()
+
+    with pytest.raises(sqlite3.IntegrityError) as excinfo:
+        create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
+
+    assert "UNIQUE constraint failed" in str(excinfo.value)
+
 
 def test_update_song():
     db, cursor = setup_db()
 
-    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
+    song_id = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
                 120, 'youtube.com/amazinggrace')
     db.commit()
 
-    update_song(cursor, '1', 'How He Loves Us',
+    update_song(cursor, song_id, 'How He Loves Us',
                 'Chris Tomlin', 'G', 120,
                 'youtube.com/howhelovesus')
     db.commit()
