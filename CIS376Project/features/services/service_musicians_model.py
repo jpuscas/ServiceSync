@@ -5,8 +5,7 @@ def create_musicians_table(cursor):
         service_id INTEGER NOT NULL, 
         user_id INTEGER NOT NULL,
         instrument TEXT NOT NULL,
-        
-        UNIQUE(service_id, user_id)
+        UNIQUE(service_id, user_id, instrument),
         
         FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -18,8 +17,10 @@ def assign_musician(cursor, service_id: int, user_id: int, instrument: str):
     INSERT INTO service_musicians (service_id, user_id, instrument)
     VALUES (?, ?, ?)
     ''', (service_id, user_id, instrument))
-    return cursor.lastrowid
 
+    return cursor.lastrowid #assignment_id
+
+#view all musicians in service
 def get_musicians_for_service(cursor, service_id: int):
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.user_id, sm.instrument, u.username
@@ -27,15 +28,20 @@ def get_musicians_for_service(cursor, service_id: int):
     JOIN users u ON sm.user_id = u.id
     WHERE sm.service_id = ?
     ''', (service_id,))
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+    return [dict(row) for row in rows]
 
-def get_musicians_assignment(cursor, musicians_id: int):
+#view all assignments for one musician
+def get_musicians_assignment(cursor, user_id: int):
     cursor.execute('''
-    SELECT musicians_id, service_id, user_id, instrument
-    FROM service_musicians
-    WHERE musicians_id = ?
-    ''', (musicians_id,))
-    return cursor.fetchone()
+    SELECT sm.musicians_id, sm.service_id, sm.instrument, s.service_name, s.service_date
+    FROM service_musicians sm
+    JOIN services s ON sm.service_id = s.service_id
+    WHERE sm.user_id = ?
+    ORDER BY s.service_date ASC
+    ''', (user_id,))
+
+    return cursor.fetchall()
 
 def get_instrument(cursor, service_id: int, instrument: str):
     cursor.execute('''

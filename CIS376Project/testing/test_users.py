@@ -8,6 +8,7 @@ from features.users.login_logic import login_user
 
 def setup_db():
     db = sqlite3.connect(':memory:')
+    db.row_factory = sqlite3.Row
     cursor = db.cursor()
 
     create_database(cursor)
@@ -18,11 +19,7 @@ def setup_db():
 def test_valid_user():
     db, cursor = setup_db()
 
-    cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', ('test_user', 'test@email.com', 'test_password'))
-
+    create_user(cursor, 'test_user', 'test@email.com', 'test_password')
     db.commit()
 
     cursor.execute('SELECT * FROM users')
@@ -32,72 +29,47 @@ def test_valid_user():
 def test_duplicate_email():
     db, cursor = setup_db()
 
-    cursor.execute('''
-    INSERT INTO users (username, email, password)
-    VALUES (?,?,?)
-    ''', ('test_user1', 'test@email.com', 'test_password1'))
-
+    create_user(cursor,'test_user1', 'test@email.com', 'test_password1')
     db.commit()
 
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', ('test_user1', 'test1234@email.com', 'test_password1'))
+        create_user(cursor,'test_user1', 'test1234@email.com', 'test_password1')
 
 def test_duplicate_username():
     db, cursor = setup_db()
 
-    cursor.execute('''
-    INSERT INTO users (username, email, password)
-    VALUES (?,?,?)
-    ''', ('test_user', 'test1234@email.com', 'test_password2'))
-
+    create_user(cursor,'test_user', 'test1234@email.com', 'test_password2')
     db.commit()
 
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', ('test_user1', 'test1234@email.com', 'test_password1'))
+        create_user(cursor,'test_user1', 'test1234@email.com', 'test_password1')
 
 def test_null_username():
     db, cursor = setup_db()
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', (None, 'test1234@email.com', 'test_password1'))
+        create_user(cursor,None, 'test1234@email.com', 'test_password1')
 
 def test_null_email():
     db, cursor = setup_db()
 
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', ('test_user1', None, 'test_password1'))
+        create_user(cursor,'test_user1', None, 'test_password1')
 
 def test_null_password():
     db, cursor = setup_db()
 
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute('''
-        INSERT INTO users (username, email, password)
-        VALUES (?,?,?)
-        ''', ('test_user4', 'test1234@email.com', None))
+        create_user(cursor,'test_user4', 'test1234@email.com', None)
 
 def test_default_role():
     db, cursor = setup_db()
 
-    cursor.execute('''
-            INSERT INTO users (username, email, password)
-            VALUES (?,?,?)
-            ''', ('test_user', 'test@email.com', 'test_password'))
+    create_user(cursor,'test_user', 'test@email.com', 'test_password')
+    db.commit()
 
     cursor.execute('''SELECT username, role FROM users WHERE username = ?''', ('test_user',))
-    rows = cursor.fetchone()
-    print(rows)
+    row = cursor.fetchone()
+    assert row['role'] == 'member', f"Expected 'member', got {row['role']}"
 
 def test_authentication_success():
     db, cursor = setup_db()
@@ -137,8 +109,8 @@ def test_update_email():
     db.commit()
 
     cursor.execute('''SELECT username, email FROM users WHERE username = ?''', ('test_user',))
-    rows = cursor.fetchone()
-    print(rows)
+    row = cursor.fetchone()
+    assert row['email'] == 'stilltesting@gmail.com'
 
 def test_delete_user():
     db, cursor = setup_db()
@@ -159,11 +131,11 @@ def test_delete_user():
 def test_verify_user():
     db, cursor = setup_db()
 
-    create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
+    user_id = create_user(cursor, 'test_user', 'testuser@gmail.com', 'password1')
     db.commit()
 
     token = '_3K7AccnHtVTdH2_7T4cGpxHUgc-ZcJfRFGzer0mOo4'
-    set_verification_code(cursor,1, token)
+    set_verification_code(cursor,user_id, token)
     db.commit()
 
     result = verify_user(cursor, token)

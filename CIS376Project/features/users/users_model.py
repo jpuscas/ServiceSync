@@ -1,3 +1,4 @@
+import sqlite3
 import bcrypt
 
 def create_users_table(cursor):
@@ -20,7 +21,19 @@ def create_users_table(cursor):
         );
     ''')
 
+    cursor.execute('''
+    CREATE TRIGGER IF NOT EXISTS update_user_timestamp 
+        AFTER UPDATE ON users
+        FOR EACH ROW
+        BEGIN
+            UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+        END;
+        ''')
+
 def create_user(cursor, username: str, email: str, password: str): #other objects like phone can be added if necessary
+    if password is None:
+        raise sqlite3.IntegrityError("NOT NULL constraint failed: users.password")
+
     hashed_password = hash_password(password)
 
     cursor.execute('''
@@ -53,7 +66,7 @@ def authenticate_user(cursor, username: str, password: str):
     if not user:
         return None
 
-    stored_hash = user[2] #password in table schema
+    stored_hash = user['password'] #password in table schema
 
     if not verify_password(password, stored_hash):
         return None
@@ -83,18 +96,23 @@ def update_password(cursor, user_id: int, new_password: str):
 
     cursor.execute('''
     UPDATE users
-    SET password = ?, 
-    updated_at = CURRENT_TIMESTAMP
+    SET password = ?
     WHERE id = ?
     ''', (new_hashed, user_id))
 
 def update_email(cursor, user_id: int, new_email: str):
     cursor.execute('''
     UPDATE users
-    SET email = ?, 
-    updated_at = CURRENT_TIMESTAMP
+    SET email = ?
     WHERE id = ?
     ''', (new_email, user_id))
+
+def set_role(cursor, user_id: int, new_role: str):
+    cursor.execute('''
+    UPDATE users
+    SET role = ?
+    WHERE id = ?
+    ''', (new_role, user_id))
 
 def delete_user(cursor, user_id: int):
     cursor.execute('''
