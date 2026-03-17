@@ -7,6 +7,15 @@ from features.users.users_model import create_users_table
 def create_database(cursor):
     create_users_table(cursor)
     create_songs_table(cursor)
+    # Add new columns for PDFs if they don't exist
+    try:
+        cursor.execute("ALTER TABLE songs ADD COLUMN chords_pdf BLOB;")
+    except:
+        pass  # Column already exists
+    try:
+        cursor.execute("ALTER TABLE songs ADD COLUMN lyrics_pdf BLOB;")
+    except:
+        pass  # Column already exists
     create_services_table(cursor)
     create_musicians_table(cursor)
     #create_service_songs_table(cursor)

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Song</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #4e73df, #1cc88a);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .form-box {
+            background: white;
+            padding: 40px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        input, textarea, label {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .file-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .file-input-group label {
+            flex: 0 0 150px;
+            margin: 0 10px 0 0;
+            font-weight: bold;
+            border: none;
+            padding: 0;
+        }
+
+        .file-input-group input[type="file"] {
+            flex: 1;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4e73df;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background: #2e59d9;
+        }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .back-link a {
+            color: #4e73df;
+            text-decoration: none;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+<div class="form-box">
+    <h2>Add a New Song</h2>
+
+    <!-- Error message placeholder -->
+    {% if message %}
+        <div class="error">{{ message }}</div>
+    {% endif %}
+
+    <form method="POST" action="/add_song" enctype="multipart/form-data">
+        <input type="text" name="title" placeholder="Song Title" required>
+        <input type="text" name="artist" placeholder="Artist" required>
+        <input type="text" name="key" placeholder="Key (e.g., C Major)" required>
+        <input type="number" name="tempo" placeholder="Tempo (optional)">
+        <input type="url" name="youtube_url" placeholder="YouTube URL (optional)">
+        <div class="file-input-group">
+            <label for="chords_pdf">Chords PDF (optional):</label>
+            <input type="file" id="chords_pdf" name="chords_pdf" accept=".pdf">
+        </div>
+        <div class="file-input-group">
+            <label for="lyrics_pdf">Lyrics PDF (optional):</label>
+            <input type="file" id="lyrics_pdf" name="lyrics_pdf" accept=".pdf">
+        </div>
+        <button type="submit">Add Song</button>
+    </form>
+
+    <div class="back-link">
+        <a href="/songs">Back to Songs</a>
+    </div>
+</div>
+
+</body>
+</html>
