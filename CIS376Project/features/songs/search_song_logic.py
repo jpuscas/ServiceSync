@@ -2,8 +2,7 @@ from database.connection import get_connection
 from features.songs.songs_model import search_song
 
 def perform_song_search(query):
-    db = get_connection()
-    cursor = db.cursor()
+    db, cursor = get_connection()
 
     try:
         results = search_song(cursor, query)
@@ -16,7 +15,9 @@ def perform_song_search(query):
                 "artist": row['artist'],
                 "key": row['default_key'],
                 "tempo": row['default_tempo'],
-                "youtube_url": row['youtube_url']
+                "youtube_url": row['youtube_url'],
+                "chords_pdf": row['chords_pdf'],
+                "lyrics_pdf": row['lyrics_pdf']
             })
 
         return {

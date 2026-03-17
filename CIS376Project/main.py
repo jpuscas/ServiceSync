@@ -2,8 +2,7 @@ from database.connection import get_connection
 from database.schema import create_database
 
 def initialize_database():
-    db = get_connection()
-    cursor = db.cursor()
+    db, cursor = get_connection()
 
     create_database(cursor)
 

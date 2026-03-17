@@ -13,12 +13,12 @@ def create_songs_table(cursor):
         );
     ''')
 
-def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None, youtube_url = None):
+def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None, youtube_url = None, chords_pdf=None, lyrics_pdf=None):
     try:
        cursor.execute('''
-       INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url)
-       VALUES (?, ?, ?, ?, ?)
-       ''', (title, artist, default_key, default_tempo, youtube_url))
+       INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ''', (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf))
 
        return cursor.lastrowid
     except sqlite3.IntegrityError:
@@ -45,16 +45,18 @@ def search_song(cursor, search_term):
 
     return cursor.fetchall()
 
-def update_song(cursor, song_id, title, artist, default_key, default_tempo, youtube_url):
+def update_song(cursor, song_id, title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf):
     cursor.execute('''
     UPDATE songs
     SET title = ?, 
     artist = ?,
     default_key = ?,
     default_tempo = ?,
-    youtube_url = ?
+    youtube_url = ?,
+    chords_pdf = ?,
+    lyrics_pdf = ?
     WHERE song_id = ?
-    ''',(title, artist, default_key, default_tempo, youtube_url, song_id))
+    ''',(title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf, song_id))
 
 def delete_song(cursor, song_id: int):
     cursor.execute('''
