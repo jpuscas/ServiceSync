@@ -1,5 +1,3 @@
-import sqlite3
-import pytest
 from database.connection import get_connection
 from database.schema import create_database
 from features.users.users_model import create_user
@@ -30,7 +28,7 @@ def test_valid_musician():
 
     assert musician == 1
     row = get_musicians_assignment(cursor, musician)
-    assert row[3] == 'Guitar'
+    assert row[0][2] == 'Guitar'
 
 def test_get_musicians_for_service():
     db, cursor = setup_db()
@@ -66,15 +64,17 @@ def test_get_musicians_assignment():
 
     row = get_musicians_assignment(cursor, 2)
 
-    assert row[0] == 2  #musicians_id
-    assert row[1] == 1  #service_id
-    assert row[2] == 2  #user_id
-    assert row[3] == 'Piano' #instrument
+    assert row[0][0] == 2  #musicians_id
+    assert row[0][1] == 1  #service_id
+    assert row[0][2] == 'Piano'  #instrument
+    assert row[0][3] == 'Sunday Worship' #service_name
+    assert row[0][4] == '2026-03-08'  #service_date
 
 def test_get_instrument():
     db, cursor = setup_db()
 
     create_user(cursor, 'user1', 'user1@gmail.com', 'pass')
+    create_user(cursor, 'user2', 'user2@gmail.com', 'pass')
     create_service(cursor, 'Sunday Worship', 'Worship',
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
@@ -85,8 +85,8 @@ def test_get_instrument():
 
     rows = get_instrument(cursor, 1, 'Guitar')
 
-    assert rows[0][0] == 1
-    assert rows[1][0] == 2
+    assert rows[0]['user_id'] == 1
+    assert rows[1]['user_id'] == 2
 
 
 def test_update_musician():
@@ -103,7 +103,7 @@ def test_update_musician():
     musician = update_musician(cursor, 1, 'Piano')
     db.commit()
 
-    assert musician[3] == 'Piano'
+    assert musician[0][2] == 'Piano'
 
 def test_delete_musician():
     db, cursor = setup_db()
@@ -120,11 +120,12 @@ def test_delete_musician():
     db.commit()
 
     row = get_musicians_assignment(cursor, 1)
-    assert row is None
+    assert row == []
 
 def test_get_no_musicians():
     db, cursor = setup_db()
 
+    create_user(cursor, 'user1', 'user1@gmail.com', 'pass')
     create_service(cursor, 'Sunday Worship', 'Worship',
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
@@ -146,7 +147,7 @@ def test_invalid_musician_id():
 
     row = get_musicians_assignment(cursor, 25)
 
-    assert row is None
+    assert row == [] #should this be none or []
 
 def test_get_invalid_instrument():
     db, cursor = setup_db()

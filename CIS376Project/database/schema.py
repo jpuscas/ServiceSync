@@ -18,4 +18,4 @@ def create_database(cursor):
         pass  # Column already exists
     create_services_table(cursor)
     create_musicians_table(cursor)
-    #create_service_songs_table(cursor)
+    create_service_songs_table(cursor)

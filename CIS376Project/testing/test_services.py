@@ -189,10 +189,11 @@ def test_full_service_test():
     assert len(service_list) == 1
     assert service_list[0][4] == '09:30'
 
-    new_service = update_service(cursor, 1, 'Sunday Worship', 'Worship',
+    update_service(cursor, 1, 'Sunday Worship', 'Worship',
                    '2026-03-08', '09:45', 1)
     db.commit()
 
+    new_service = list_services(cursor)
     assert new_service[0][4] == '09:45'
 
     delete_service(cursor, 1)

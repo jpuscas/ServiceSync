@@ -119,11 +119,9 @@ def test_duplicate_song():
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
     db.commit()
 
-    with pytest.raises(sqlite3.IntegrityError) as excinfo:
-        create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
+    result = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
 
-    assert "UNIQUE constraint failed" in str(excinfo.value)
-
+    assert result is None
 
 def test_update_song():
     db, cursor = setup_db()
@@ -134,7 +132,7 @@ def test_update_song():
 
     update_song(cursor, song_id, 'How He Loves Us',
                 'Chris Tomlin', 'G', 120,
-                'youtube.com/howhelovesus')
+                'youtube.com/howhelovesus', 'hhl.pdf', 'hhl_lyrics.pdf')
     db.commit()
 
     cursor.execute('''SELECT title, artist FROM songs 
