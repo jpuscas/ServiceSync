@@ -9,11 +9,14 @@ def create_songs_table(cursor):
         default_key TEXT NOT NULL,
         default_tempo INTEGER,
         youtube_url TEXT,
+        chords_pdf TEXT,
+        lyrics_pdf TEXT,
         UNIQUE(title, artist)
         );
     ''')
 
-def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None, youtube_url = None, chords_pdf=None, lyrics_pdf=None):
+def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None,
+                youtube_url = None, chords_pdf=None, lyrics_pdf=None):
     try:
        cursor.execute('''
        INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf)
