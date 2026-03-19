@@ -1,1 +1,4 @@
-
+CIS376Project/project.db
+__pycache__/
+*.pyc
+.idea/
