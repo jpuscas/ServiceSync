@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services</title>
+    <style>
+        :root {
+            --ink: #1f2937;
+            --muted: #64748b;
+            --line: rgba(31, 41, 55, 0.12);
+            --paper: #f5efe4;
+            --card: rgba(255, 255, 255, 0.86);
+            --brand: #14532d;
+            --brand-soft: rgba(20, 83, 45, 0.1);
+            --accent: #b45309;
+            --danger: #991b1b;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(20, 83, 45, 0.14), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.16), transparent 30%),
+                linear-gradient(135deg, #f7f1e5 0%, #e8efe8 100%);
+        }
+
+        .page {
+            width: min(1320px, calc(100% - 26px));
+            margin: 13px auto;
+            padding: 18px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .topbar h1 {
+            margin: 0 0 6px;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+        }
+
+        .topbar p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .topbar a {
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 999px;
+            background: var(--brand);
+            color: white;
+            font-weight: 700;
+        }
+
+        .topbar-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-meta form {
+            margin: 0;
+        }
+
+        .logout-btn {
+            border: none;
+            border-radius: 999px;
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+            padding: 10px 14px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .alert {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(185, 28, 28, 0.1);
+            border: 1px solid rgba(185, 28, 28, 0.18);
+            color: #7f1d1d;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 330px 1fr;
+            gap: 18px;
+        }
+
+        .panel {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(10px);
+        }
+
+        .panel h2 {
+            margin: 0 0 14px;
+            font-size: 1.35rem;
+        }
+
+        .service-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .service-link {
+            display: block;
+            padding: 16px;
+            border-radius: 18px;
+            text-decoration: none;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--line);
+        }
+
+        .service-link.active {
+            background: var(--brand-soft);
+            border-color: rgba(20, 83, 45, 0.25);
+        }
+
+        .service-link strong {
+            display: block;
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+        }
+
+        .service-link span {
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .empty {
+            padding: 18px;
+            text-align: center;
+            border-radius: 18px;
+            border: 1px dashed rgba(31, 41, 55, 0.2);
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.58);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .field label {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font: inherit;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin: 22px 0 12px;
+        }
+
+        .role-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .role-buttons button,
+        .browser button,
+        .assignment button,
+        .selected-song button,
+        .save-row button {
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .role-buttons button {
+            padding: 9px 13px;
+            background: rgba(20, 83, 45, 0.1);
+            color: var(--brand);
+            font-weight: 700;
+        }
+
+        .assignment-list,
+        .selected-songs,
+        .browser {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .assignment,
+        .selected-song,
+        .song-option {
+            display: grid;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid var(--line);
+        }
+
+        .assignment {
+            grid-template-columns: 190px 1fr auto;
+        }
+
+        .selected-song,
+        .song-option {
+            grid-template-columns: 1fr auto;
+        }
+
+        .assignment-role {
+            font-weight: 700;
+            color: var(--brand);
+        }
+
+        .browser-wrap {
+            display: grid;
+            grid-template-columns: 0.9fr 1.1fr;
+            gap: 16px;
+        }
+
+        .browser {
+            max-height: 360px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .song-option h3,
+        .selected-song h3 {
+            margin: 0 0 6px;
+        }
+
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .song-option button {
+            padding: 10px 14px;
+            background: rgba(180, 83, 9, 0.12);
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .assignment button,
+        .selected-song button {
+            padding: 10px 12px;
+            background: rgba(153, 27, 27, 0.1);
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        .selected-song-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .order-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            margin-bottom: 10px;
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+            font-weight: 700;
+        }
+
+        .move-button {
+            background: rgba(20, 83, 45, 0.12) !important;
+            color: var(--brand) !important;
+        }
+
+        .delete-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .delete-row form {
+            margin: 0;
+        }
+
+        .delete-button {
+            padding: 13px 18px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(153, 27, 27, 0.12);
+            color: var(--danger);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .save-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 22px;
+        }
+
+        .save-row button {
+            padding: 15px 24px;
+            background: linear-gradient(135deg, var(--brand) 0%, #166534 100%);
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 14px 28px rgba(20, 83, 45, 0.22);
+        }
+
+        @media (max-width: 1080px) {
+            .layout,
+            .browser-wrap {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .page {
+                width: calc(100% - 14px);
+                margin: 7px;
+                padding: 10px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .detail-grid,
+            .assignment,
+            .selected-song,
+            .song-option {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1>Services</h1>
+                <p>Browse every service by date, then update the date, people, and songs from the detail panel.</p>
+            </div>
+            <div class="topbar-meta">
+                <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
+                <div class="topbar-links">
+                    <a href="/">Home</a>
+                    {% if can_manage %}
+                        <a href="/services/new">Create New Service</a>
+                    {% endif %}
+                </div>
+                <form method="POST" action="/logout">
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            </div>
+        </div>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        <div class="layout">
+            <aside class="panel">
+                <h2>All Services</h2>
+                <div class="service-list">
+                    {% for service in services %}
+                        <a class="service-link {% if selected_service and selected_service.service_id == service.service_id %}active{% endif %}" href="/services/{{ service.service_id }}">
+                            <strong>{{ service.service_date }}</strong>
+                            <span>{{ service.service_time }}{% if service.leader_name %} • Leader: {{ service.leader_name }}{% endif %}</span>
+                        </a>
+                    {% else %}
+                        <div class="empty">No services have been created yet.</div>
+                    {% endfor %}
+                </div>
+            </aside>
+
+            <main class="panel">
+                {% if selected_service %}
+                    <h2>{{ selected_service.service_date }}</h2>
+                    <form method="POST" action="/services/{{ selected_service.service_id }}/edit" id="service-edit-form">
+                        <div class="detail-grid">
+                            <div class="field">
+                                <label for="service-date-picker">Service Date</label>
+                                <input type="date" id="service-date-picker" value="{{ selected_service.service_date }}" {% if not can_manage %}disabled{% endif %}>
+                            </div>
+                            <div class="field">
+                                <label for="service-date-text">Type Date</label>
+                                <input type="text" id="service-date-text" name="service_date" value="{{ selected_service.service_date }}" placeholder="YYYY-MM-DD or MM/DD/YYYY" required {% if not can_manage %}disabled{% endif %}>
+                            </div>
+                            <div class="field">
+                                <label for="service-time">Service Time</label>
+                                <input type="time" id="service-time" name="service_time" value="{{ selected_service.service_time }}" {% if not can_manage %}disabled{% endif %}>
+                            </div>
+                            <div class="field">
+                                <label for="leader-id">Service Leader</label>
+                                <select id="leader-id" name="leader_id" {% if not can_manage %}disabled{% endif %}>
+                                    <option value="">No leader selected</option>
+                                    {% for user in users %}
+                                        <option value="{{ user.id }}" {% if selected_service.leader_id|string == user.id|string %}selected{% endif %}>{{ user.username }}{% if user.role %} • {{ user.role }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="section-head">
+                            <h2 style="margin: 0;">Roles and People</h2>
+                        </div>
+                        {% if can_manage %}
+                            <div class="role-buttons">
+                                {% for role in roles %}
+                                    <button type="button" data-role="{{ role }}">Add {{ role }}</button>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div id="assignment-list" class="assignment-list"></div>
+                        <input type="hidden" id="role-assignments" name="role_assignments">
+
+                        <div class="section-head">
+                            <h2 style="margin: 0;">Songs</h2>
+                        </div>
+                        <div class="browser-wrap">
+                            {% if can_manage %}
+                                <div>
+                                    <div class="field">
+                                        <label for="song-search">Search Songs</label>
+                                        <input type="text" id="song-search" placeholder="Search by title or artist">
+                                    </div>
+                                    <div id="song-browser" class="browser"></div>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <h2 style="margin-top: 0;">Selected Songs</h2>
+                                <div id="selected-songs" class="selected-songs"></div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="song-ids" name="song_ids">
+
+                        {% if can_manage %}
+                            <div class="save-row">
+                                <button type="submit">Save Service Changes</button>
+                            </div>
+                        {% endif %}
+                    </form>
+
+                    {% if can_manage %}
+                        <div class="delete-row">
+                            <div class="empty" style="padding: 12px 16px; text-align: left;">Delete removes this service and its role assignments and songs.</div>
+                            <form method="POST" action="/services/{{ selected_service.service_id }}/delete" onsubmit="return confirm('Delete this service?');">
+                                <button type="submit" class="delete-button">Delete Service</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty">Pick a service from the list or create a new one.</div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    {% if selected_service %}
+    <script>
+        const canManage = JSON.parse('{{ can_manage|tojson }}');
+        const availableUsers = JSON.parse('{{ users|tojson }}');
+        const allSongs = JSON.parse('{{ songs|tojson }}');
+        const state = {
+            assignments: JSON.parse('{{ selected_service.assignments|tojson }}'),
+            selectedSongs: JSON.parse('{{ selected_service.songs|tojson }}')
+        };
+
+        const assignmentList = document.getElementById('assignment-list');
+        const roleAssignmentsInput = document.getElementById('role-assignments');
+        const songBrowser = document.getElementById('song-browser');
+        const selectedSongs = document.getElementById('selected-songs');
+        const songIdsInput = document.getElementById('song-ids');
+        const datePicker = document.getElementById('service-date-picker');
+        const dateText = document.getElementById('service-date-text');
+        const songSearch = document.getElementById('song-search');
+
+        function syncHiddenInputs() {
+            roleAssignmentsInput.value = JSON.stringify(
+                state.assignments.map((assignment) => ({ role: assignment.instrument || assignment.role, user_id: assignment.user_id || '' }))
+            );
+            songIdsInput.value = JSON.stringify(state.selectedSongs.map((song) => song.song_id));
+        }
+
+        function renderAssignments() {
+            assignmentList.innerHTML = '';
+
+            if (!state.assignments.length) {
+                assignmentList.innerHTML = '<div class="empty">No role assignments saved for this service yet.</div>';
+                syncHiddenInputs();
+                return;
+            }
+
+            state.assignments.forEach((assignment, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'assignment';
+
+                const role = document.createElement('div');
+                role.className = 'assignment-role';
+                role.textContent = assignment.instrument || assignment.role;
+
+                wrapper.appendChild(role);
+
+                if (canManage) {
+                    const select = document.createElement('select');
+                    select.innerHTML = '<option value="">Select a user</option>';
+                    availableUsers.forEach((user) => {
+                        const option = document.createElement('option');
+                        option.value = user.id;
+                        option.textContent = user.role ? `${user.username} • ${user.role}` : user.username;
+                        if (String(assignment.user_id || '') === String(user.id)) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                    select.addEventListener('change', (event) => {
+                        state.assignments[index].user_id = event.target.value;
+                        syncHiddenInputs();
+                    });
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.textContent = 'Remove';
+                    remove.addEventListener('click', () => {
+                        state.assignments.splice(index, 1);
+                        renderAssignments();
+                    });
+
+                    wrapper.appendChild(select);
+                    wrapper.appendChild(remove);
+                } else {
+                    const person = document.createElement('div');
+                    person.textContent = assignment.username || 'Unassigned';
+                    wrapper.appendChild(person);
+                }
+
+                assignmentList.appendChild(wrapper);
+            });
+
+            syncHiddenInputs();
+        }
+
+        function songMeta(song) {
+            const keyText = song.song_key || song.default_key || '—';
+            const tempoText = song.song_tempo || song.default_tempo || '—';
+            return `
+                <div class="meta">
+                    <span>Artist: ${song.artist || '—'}</span>
+                    <span>Key: ${keyText}</span>
+                    <span>Tempo: ${tempoText}</span>
+                </div>
+            `;
+        }
+
+        function renderSelectedSongs() {
+            selectedSongs.innerHTML = '';
+
+            if (!state.selectedSongs.length) {
+                selectedSongs.innerHTML = '<div class="empty">No songs are attached to this service yet.</div>';
+                syncHiddenInputs();
+                return;
+            }
+
+            state.selectedSongs.forEach((song, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'selected-song';
+                wrapper.innerHTML = `
+                    <div>
+                        <div class="order-badge">${index + 1}</div>
+                        <h3>${song.title}</h3>
+                        ${songMeta(song)}
+                    </div>
+                `;
+
+                if (canManage) {
+                    const actions = document.createElement('div');
+                    actions.className = 'selected-song-actions';
+
+                    const moveUp = document.createElement('button');
+                    moveUp.type = 'button';
+                    moveUp.textContent = 'Up';
+                    moveUp.className = 'move-button';
+                    moveUp.disabled = index === 0;
+                    moveUp.addEventListener('click', () => {
+                        if (index === 0) {
+                            return;
+                        }
+                        const current = state.selectedSongs[index - 1];
+                        state.selectedSongs[index - 1] = state.selectedSongs[index];
+                        state.selectedSongs[index] = current;
+                        renderSelectedSongs();
+                    });
+
+                    const moveDown = document.createElement('button');
+                    moveDown.type = 'button';
+                    moveDown.textContent = 'Down';
+                    moveDown.className = 'move-button';
+                    moveDown.disabled = index === state.selectedSongs.length - 1;
+                    moveDown.addEventListener('click', () => {
+                        if (index === state.selectedSongs.length - 1) {
+                            return;
+                        }
+                        const current = state.selectedSongs[index + 1];
+                        state.selectedSongs[index + 1] = state.selectedSongs[index];
+                        state.selectedSongs[index] = current;
+                        renderSelectedSongs();
+                    });
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.textContent = 'Remove';
+                    remove.addEventListener('click', () => {
+                        state.selectedSongs.splice(index, 1);
+                        renderSelectedSongs();
+                    });
+
+                    actions.appendChild(moveUp);
+                    actions.appendChild(moveDown);
+                    actions.appendChild(remove);
+                    wrapper.appendChild(actions);
+                }
+                selectedSongs.appendChild(wrapper);
+            });
+
+            syncHiddenInputs();
+        }
+
+        function addSong(song) {
+            if (state.selectedSongs.some((selectedSong) => String(selectedSong.song_id) === String(song.song_id))) {
+                return;
+            }
+            state.selectedSongs.push(song);
+            renderSelectedSongs();
+        }
+
+        function renderSongBrowser(songsToRender) {
+            if (!songBrowser) {
+                return;
+            }
+
+            songBrowser.innerHTML = '';
+
+            if (!songsToRender.length) {
+                songBrowser.innerHTML = '<div class="empty">No songs matched that search.</div>';
+                return;
+            }
+
+            songsToRender.forEach((song) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'song-option';
+                wrapper.innerHTML = `
+                    <div>
+                        <h3>${song.title}</h3>
+                        ${songMeta(song)}
+                    </div>
+                `;
+
+                if (canManage) {
+                    const addButton = document.createElement('button');
+                    addButton.type = 'button';
+                    addButton.textContent = 'Add Song';
+                    addButton.addEventListener('click', () => addSong(song));
+                    wrapper.appendChild(addButton);
+                }
+                songBrowser.appendChild(wrapper);
+            });
+        }
+
+        async function searchSongs(query) {
+            if (!query.trim()) {
+                renderSongBrowser(allSongs);
+                return;
+            }
+
+            const response = await fetch(`/api/songs?q=${encodeURIComponent(query)}`);
+            const payload = await response.json();
+            renderSongBrowser(payload.songs || []);
+        }
+
+        if (canManage) {
+            document.querySelectorAll('[data-role]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    state.assignments.push({ role: button.dataset.role, user_id: '' });
+                    renderAssignments();
+                });
+            });
+
+            songSearch.addEventListener('input', (event) => {
+                searchSongs(event.target.value);
+            });
+
+            datePicker.addEventListener('change', () => {
+                dateText.value = datePicker.value;
+            });
+
+            dateText.addEventListener('change', () => {
+                const normalizedValue = dateText.value.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+                    datePicker.value = normalizedValue;
+                }
+            });
+        }
+
+        renderAssignments();
+        renderSelectedSongs();
+        if (canManage) {
+            renderSongBrowser(allSongs);
+        }
+        syncHiddenInputs();
+    </script>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Service</title>
+    <style>
+        :root {
+            --ink: #1b2430;
+            --muted: #5f6f81;
+            --paper: #f6f1e8;
+            --card: rgba(255, 252, 247, 0.94);
+            --brand: #0f766e;
+            --brand-deep: #115e59;
+            --accent: #d97706;
+            --line: rgba(27, 36, 48, 0.12);
+            --shadow: 0 18px 45px rgba(27, 36, 48, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(217, 119, 6, 0.18), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.22), transparent 30%),
+                linear-gradient(135deg, #f8efe1 0%, #efe6d6 50%, #e6efe9 100%);
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 32px));
+            margin: 28px auto;
+            padding: 24px;
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: clamp(2rem, 4vw, 3.4rem);
+            line-height: 1;
+        }
+
+        .hero p {
+            margin: 0;
+            max-width: 650px;
+            color: var(--muted);
+            font-size: 1.05rem;
+        }
+
+        .hero a {
+            text-decoration: none;
+            color: var(--brand-deep);
+            font-weight: 700;
+            align-self: center;
+        }
+
+        .hero-links {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .session-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .session-bar form {
+            margin: 0;
+        }
+
+        .session-bar button {
+            border: none;
+            border-radius: 999px;
+            padding: 10px 14px;
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--brand-deep);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .alert {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(185, 28, 28, 0.1);
+            border: 1px solid rgba(185, 28, 28, 0.18);
+            color: #7f1d1d;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: 1.2fr 0.9fr;
+            gap: 22px;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+        }
+
+        .panel h2 {
+            margin: 0 0 14px;
+            font-size: 1.4rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font: inherit;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .role-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .role-buttons button,
+        .song-browser button,
+        .assignment button,
+        .selected-song button,
+        .submit-row button {
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .role-buttons button {
+            padding: 10px 14px;
+            background: rgba(15, 118, 110, 0.1);
+            color: var(--brand-deep);
+            font-weight: 700;
+        }
+
+        .role-buttons button:hover,
+        .song-browser button:hover {
+            background: rgba(15, 118, 110, 0.16);
+        }
+
+        .assignment-list,
+        .selected-songs {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .assignment,
+        .selected-song {
+            display: grid;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid var(--line);
+        }
+
+        .assignment {
+            grid-template-columns: 180px 1fr auto;
+        }
+
+        .selected-song {
+            grid-template-columns: 1fr auto;
+        }
+
+        .assignment-role {
+            font-weight: 700;
+            color: var(--brand-deep);
+        }
+
+        .ghost {
+            padding: 10px 14px;
+            background: rgba(27, 36, 48, 0.08);
+            color: var(--ink);
+        }
+
+        .song-search input {
+            margin-bottom: 14px;
+        }
+
+        .song-browser {
+            max-height: 410px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 4px;
+        }
+
+        .song-option {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid var(--line);
+        }
+
+        .song-option h3,
+        .selected-song h3 {
+            margin: 0 0 6px;
+            font-size: 1.05rem;
+        }
+
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .song-browser button {
+            padding: 10px 14px;
+            background: rgba(217, 119, 6, 0.14);
+            color: #9a3412;
+            font-weight: 700;
+            align-self: center;
+        }
+
+        .selected-song button,
+        .assignment button {
+            padding: 10px 12px;
+            background: rgba(185, 28, 28, 0.12);
+            color: #991b1b;
+            font-weight: 700;
+        }
+
+        .selected-song-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .order-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            margin-bottom: 10px;
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--brand-deep);
+            font-weight: 700;
+        }
+
+        .move-button {
+            background: rgba(15, 118, 110, 0.14) !important;
+            color: var(--brand-deep) !important;
+        }
+
+        .empty {
+            padding: 16px;
+            border: 1px dashed rgba(27, 36, 48, 0.2);
+            border-radius: 18px;
+            color: var(--muted);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        .submit-row {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .submit-row button {
+            padding: 16px 28px;
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 14px 28px rgba(15, 118, 110, 0.25);
+        }
+
+        @media (max-width: 980px) {
+            form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .page {
+                width: calc(100% - 18px);
+                margin: 9px;
+                padding: 16px;
+            }
+
+            .hero {
+                flex-direction: column;
+            }
+
+            .grid,
+            .assignment,
+            .selected-song,
+            .song-option {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="session-bar">
+            <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
+            <form method="POST" action="/logout">
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+
+        <div class="hero">
+            <div>
+                <h1>Create Worship Service</h1>
+                <p>Build the team, set the date, and add songs in one place. Each role button creates another slot, so you can schedule multiple singers, guitarists, or any other role you need.</p>
+            </div>
+            <div class="hero-links">
+                <a href="/">Home</a>
+                <a href="/services">View Services</a>
+            </div>
+        </div>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        <form method="POST" action="/services/new" id="service-form">
+            <section class="panel">
+                <h2>Service Setup</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label for="service-date-picker">Service Date</label>
+                        <input type="date" id="service-date-picker" value="{{ form_data.service_date }}">
+                    </div>
+                    <div class="field">
+                        <label for="service-date-text">Type Date</label>
+                        <input type="text" id="service-date-text" name="service_date" value="{{ form_data.service_date }}" placeholder="YYYY-MM-DD or MM/DD/YYYY" required>
+                    </div>
+                    <div class="field">
+                        <label for="service-time">Service Time</label>
+                        <input type="time" id="service-time" name="service_time" value="{{ form_data.service_time }}">
+                    </div>
+                    <div class="field">
+                        <label for="leader-id">Service Leader</label>
+                        <select id="leader-id" name="leader_id">
+                            <option value="">No leader selected</option>
+                            {% for user in users %}
+                                {% if user.role and user.role|lower == 'leader' %}
+                                    <option value="{{ user.id }}" {% if form_data.leader_id|string == user.id|string %}selected{% endif %}>{{ user.username }}{% if user.role %} • {{ user.role }}{% endif %}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <h2>Role Slots</h2>
+                <div class="role-buttons">
+                    {% for role in roles %}
+                        <button type="button" data-role="{{ role }}">Add {{ role }}</button>
+                    {% endfor %}
+                </div>
+
+                <div id="assignment-list" class="assignment-list"></div>
+                <input type="hidden" id="role-assignments" name="role_assignments">
+            </section>
+
+            <section class="panel">
+                <h2>Add Songs</h2>
+                <div class="field song-search">
+                    <label for="song-search">Search Songs</label>
+                    <input type="text" id="song-search" placeholder="Search by title or artist">
+                </div>
+
+                <div id="song-browser" class="song-browser"></div>
+
+                <h2 style="margin-top: 20px;">Selected Songs</h2>
+                <div id="selected-songs" class="selected-songs"></div>
+                <input type="hidden" id="song-ids" name="song_ids">
+            </section>
+
+            <div class="submit-row">
+                <button type="submit">Create Service</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const users = {{ users|tojson }};
+        const allSongs = {{ songs|tojson }};
+        const state = {
+            assignments: {{ selected_assignments|tojson }},
+            selectedSongs: {{ selected_songs|tojson }}
+        };
+
+        const assignmentList = document.getElementById('assignment-list');
+        const roleAssignmentsInput = document.getElementById('role-assignments');
+        const songBrowser = document.getElementById('song-browser');
+        const selectedSongs = document.getElementById('selected-songs');
+        const songIdsInput = document.getElementById('song-ids');
+        const datePicker = document.getElementById('service-date-picker');
+        const dateText = document.getElementById('service-date-text');
+        const songSearch = document.getElementById('song-search');
+
+        function syncHiddenInputs() {
+            roleAssignmentsInput.value = JSON.stringify(
+                state.assignments.map((assignment) => ({ role: assignment.role, user_id: assignment.user_id || '' }))
+            );
+            songIdsInput.value = JSON.stringify(state.selectedSongs.map((song) => song.song_id));
+        }
+
+        function renderAssignments() {
+            assignmentList.innerHTML = '';
+
+            if (!state.assignments.length) {
+                assignmentList.innerHTML = '<div class="empty">No role slots added yet. Use the buttons above to add singers, drummers, guitarists, or keys.</div>';
+                syncHiddenInputs();
+                return;
+            }
+
+            state.assignments.forEach((assignment, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'assignment';
+
+                const role = document.createElement('div');
+                role.className = 'assignment-role';
+                role.textContent = assignment.role;
+
+                const select = document.createElement('select');
+                select.innerHTML = '<option value="">Select a user</option>';
+                users.forEach((user) => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.role ? `${user.username} • ${user.role}` : user.username;
+                    if (String(assignment.user_id || '') === String(user.id)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                select.addEventListener('change', (event) => {
+                    state.assignments[index].user_id = event.target.value;
+                    syncHiddenInputs();
+                });
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', () => {
+                    state.assignments.splice(index, 1);
+                    renderAssignments();
+                });
+
+                wrapper.appendChild(role);
+                wrapper.appendChild(select);
+                wrapper.appendChild(remove);
+                assignmentList.appendChild(wrapper);
+            });
+
+            syncHiddenInputs();
+        }
+
+        function songMeta(song) {
+            const keyText = song.song_key || song.default_key || '—';
+            const tempoText = song.song_tempo || song.default_tempo || '—';
+            return `
+                <div class="meta">
+                    <span>Artist: ${song.artist || '—'}</span>
+                    <span>Key: ${keyText}</span>
+                    <span>Tempo: ${tempoText}</span>
+                </div>
+            `;
+        }
+
+        function renderSelectedSongs() {
+            selectedSongs.innerHTML = '';
+
+            if (!state.selectedSongs.length) {
+                selectedSongs.innerHTML = '<div class="empty">No songs added yet. Search or scroll through the song database and add the songs you want in this service.</div>';
+                syncHiddenInputs();
+                return;
+            }
+
+            state.selectedSongs.forEach((song, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'selected-song';
+                wrapper.innerHTML = `
+                    <div>
+                        <div class="order-badge">${index + 1}</div>
+                        <h3>${song.title}</h3>
+                        ${songMeta(song)}
+                    </div>
+                `;
+
+                const actions = document.createElement('div');
+                actions.className = 'selected-song-actions';
+
+                const moveUp = document.createElement('button');
+                moveUp.type = 'button';
+                moveUp.textContent = 'Up';
+                moveUp.className = 'move-button';
+                moveUp.disabled = index === 0;
+                moveUp.addEventListener('click', () => {
+                    if (index === 0) {
+                        return;
+                    }
+                    const current = state.selectedSongs[index - 1];
+                    state.selectedSongs[index - 1] = state.selectedSongs[index];
+                    state.selectedSongs[index] = current;
+                    renderSelectedSongs();
+                });
+
+                const moveDown = document.createElement('button');
+                moveDown.type = 'button';
+                moveDown.textContent = 'Down';
+                moveDown.className = 'move-button';
+                moveDown.disabled = index === state.selectedSongs.length - 1;
+                moveDown.addEventListener('click', () => {
+                    if (index === state.selectedSongs.length - 1) {
+                        return;
+                    }
+                    const current = state.selectedSongs[index + 1];
+                    state.selectedSongs[index + 1] = state.selectedSongs[index];
+                    state.selectedSongs[index] = current;
+                    renderSelectedSongs();
+                });
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', () => {
+                    state.selectedSongs.splice(index, 1);
+                    renderSelectedSongs();
+                });
+
+                actions.appendChild(moveUp);
+                actions.appendChild(moveDown);
+                actions.appendChild(remove);
+                wrapper.appendChild(actions);
+                selectedSongs.appendChild(wrapper);
+            });
+
+            syncHiddenInputs();
+        }
+
+        function addSong(song) {
+            if (state.selectedSongs.some((selectedSong) => String(selectedSong.song_id) === String(song.song_id))) {
+                return;
+            }
+            state.selectedSongs.push(song);
+            renderSelectedSongs();
+        }
+
+        function renderSongBrowser(songsToRender) {
+            songBrowser.innerHTML = '';
+
+            if (!songsToRender.length) {
+                songBrowser.innerHTML = '<div class="empty">No songs matched that search.</div>';
+                return;
+            }
+
+            songsToRender.forEach((song) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'song-option';
+                wrapper.innerHTML = `
+                    <div>
+                        <h3>${song.title}</h3>
+                        ${songMeta(song)}
+                    </div>
+                `;
+
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.textContent = 'Add Song';
+                addButton.addEventListener('click', () => addSong(song));
+
+                wrapper.appendChild(addButton);
+                songBrowser.appendChild(wrapper);
+            });
+        }
+
+        async function searchSongs(query) {
+            if (!query.trim()) {
+                renderSongBrowser(allSongs);
+                return;
+            }
+
+            const response = await fetch(`/api/songs?q=${encodeURIComponent(query)}`);
+            const payload = await response.json();
+            renderSongBrowser(payload.songs || []);
+        }
+
+        document.querySelectorAll('[data-role]').forEach((button) => {
+            button.addEventListener('click', () => {
+                state.assignments.push({ role: button.dataset.role, user_id: '' });
+                renderAssignments();
+            });
+        });
+
+        songSearch.addEventListener('input', (event) => {
+            searchSongs(event.target.value);
+        });
+
+        datePicker.addEventListener('change', () => {
+            dateText.value = datePicker.value;
+        });
+
+        dateText.addEventListener('change', () => {
+            const normalizedValue = dateText.value.trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+                datePicker.value = normalizedValue;
+            }
+        });
+
+        renderAssignments();
+        renderSelectedSongs();
+        renderSongBrowser(allSongs);
+        syncHiddenInputs();
+    </script>
+</body>
+</html>
