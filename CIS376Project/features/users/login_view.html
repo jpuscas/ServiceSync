@@ -63,6 +63,27 @@
             font-size: 75px;
             font-weight: bold;
         }
+
+        .quick-links {
+            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .quick-links a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.12);
+        }
+
+        .quick-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 
@@ -88,6 +109,13 @@
         Don't have an account? <a href="/register" style="color: #4e73df; text-decoration: none;">Sign up</a>
     </p>
 
+</div>
+
+<div class="quick-links">
+    <a href="/">Home</a>
+    <a href="/services">Services</a>
+    <a href="/services/new">Create Service</a>
+    <a href="/songs">Songs</a>
 </div>
 
 </body>

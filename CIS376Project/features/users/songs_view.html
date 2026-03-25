@@ -30,6 +30,63 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.35);
         }
 
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            color: white;
+        }
+
+        .topbar form {
+            margin: 0;
+        }
+
+        .topbar button {
+            width: auto;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.16);
+            border: 1px solid rgba(255,255,255,0.26);
+        }
+
+        .topbar button:hover {
+            background: rgba(255,255,255,0.24);
+        }
+
+        .alert {
+            text-align: center;
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.85);
+        }
+
+        .nav-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .nav-link {
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.16);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.26);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .nav-link:hover {
+            text-decoration: none;
+            background: rgba(255,255,255,0.24);
+        }
+
         .search-wrapper {
             display: flex;
             justify-content: center;
@@ -104,19 +161,6 @@
             font-weight: 700;
         }
 
-        .song-card .add-button {
-            padding: 6px 12px;
-            background: #4e73df;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .song-card .add-button:hover {
-            background: #2e59d9;
-        }
-
         .song-card .song-meta {
             font-size: 14px;
             line-height: 1.5;
@@ -145,14 +189,35 @@
 </head>
 <body>
 <div class="page">
+    <div class="topbar">
+        <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
+        <form method="POST" action="/logout">
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+
     <h1>Songs</h1>
+
+    {% if message %}
+        <div class="alert">{{ message }}</div>
+    {% endif %}
+
+    <div class="nav-row">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/services" class="nav-link">Services</a>
+        {% if can_manage %}
+            <a href="/services/new" class="nav-link">Create Service</a>
+        {% endif %}
+    </div>
 
     <div class="search-wrapper">
         <form method="GET" action="/songs" style="display: flex;">
             <input type="text" name="q" placeholder="Search for songs or artists" value="{{ query|default('') }}" />
             <button type="submit">Search</button>
         </form>
-        <a href="/add_song" class="add-song-btn">Add a Song</a>
+        {% if can_manage %}
+            <a href="/add_song" class="add-song-btn">Add a Song</a>
+        {% endif %}
     </div>
 
     <div class="song-list">
@@ -160,7 +225,6 @@
             <div class="song-card">
                 <div class="song-header">
                     <div class="song-title">{{ song.title }}</div>
-                    <button class="add-button" type="button">Add</button>
                 </div>
                 <div class="song-meta">
                     <div><strong>Artist:</strong> {{ song.artist }}</div>
