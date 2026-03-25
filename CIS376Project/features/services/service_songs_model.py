@@ -46,6 +46,7 @@ def get_songs_for_service(cursor, service_id: int):
     return [dict(row) for row in rows]
 
 def get_service_setlist(cursor, service_id: int):
+    # Alias for get_songs_for_service, kept for backward compatibility with existing tests.
     return get_songs_for_service(cursor, service_id)
 
 def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_tempo, song_order, service_id):
