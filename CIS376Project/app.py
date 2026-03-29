@@ -1,17 +1,204 @@
+import json
+from functools import wraps
+
 from flask import Flask, render_template, request, jsonify, session, redirect
 from database.connection import get_connection
+from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service
+from features.services.service_songs_model import add_song_to_service, clear_songs_for_service, get_songs_for_service
+from features.services.services_model import create_service, delete_service, get_service_by_id, list_services, list_services_for_user, update_service
 from features.songs.add_song_logic import add_new_song
 from features.songs.songs_model import list_songs, search_song
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user
 from features.users.user_verification import verify_user
+from features.users.users_model import get_user_by_id, list_users
 
 app = Flask(__name__, template_folder='features/users')
 app.secret_key = 'dev_secret_key'
 
+SERVICE_ROLES = [
+    'Singer',
+    'Drummer',
+    'Bass Guitarist',
+    'Electric Guitarist',
+    'Pianist',
+    'Keyboard',
+    'Acoustic Guitarist',
+]
+
+def get_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+
+    db, cursor = get_connection()
+    user_row = get_user_by_id(cursor, user_id)
+    db.close()
+
+    if user_row is None:
+        session.clear()
+        return None
+
+    # Keep session fields in sync in case role/username changed in the database.
+    session['username'] = user_row['username']
+    session['role'] = user_row['role']
+
+    return {
+        'id': user_id,
+        'username': user_row['username'],
+        'role': user_row['role'],
+    }
+
+def is_leader(user=None):
+    active_user = user or get_current_user()
+    return bool(active_user and str(active_user.get('role', '')).lower() == 'leader')
+
+def require_login(view_function):
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        if get_current_user() is None:
+            session['message'] = 'Please log in to continue.'
+            return redirect('/login')
+        return view_function(*args, **kwargs)
+    return wrapped_view
+
+def require_leader(redirect_path='/'):
+    def decorator(view_function):
+        @wraps(view_function)
+        def wrapped_view(*args, **kwargs):
+            current_user = get_current_user()
+            if current_user is None:
+                session['message'] = 'Please log in to continue.'
+                return redirect('/login')
+            if not is_leader(current_user):
+                session['message'] = 'Leader access is required for that action.'
+                return redirect(redirect_path)
+            return view_function(*args, **kwargs)
+        return wrapped_view
+    return decorator
+
+def serialize_song(song_row):
+    return {
+        'song_id': song_row['song_id'],
+        'title': song_row['title'],
+        'artist': song_row['artist'],
+        'default_key': song_row['default_key'],
+        'default_tempo': song_row['default_tempo'],
+        'youtube_url': song_row['youtube_url'],
+        'has_chords_pdf': 1 if song_row['chords_pdf'] else 0,
+        'has_lyrics_pdf': 1 if song_row['lyrics_pdf'] else 0,
+    }
+
+def serialize_user(user_row):
+    return {
+        'id': user_row['id'],
+        'username': user_row['username'],
+        'email': user_row['email'],
+        'role': user_row['role'],
+    }
+
+def build_service_detail(cursor, service_row):
+    if not service_row:
+        return None
+
+    detail = dict(service_row)
+    detail['assignments'] = get_musicians_for_service(cursor, detail['service_id'])
+    detail['songs'] = get_songs_for_service(cursor, detail['service_id'])
+    detail['title'] = detail['service_date']
+    return detail
+
+def normalize_song_ids(song_payload):
+    ordered_song_ids = []
+    for song_item in song_payload:
+        song_id = song_item.get('song_id') if isinstance(song_item, dict) else song_item
+        if song_id in (None, ''):
+            continue
+        ordered_song_ids.append(int(song_id))
+    return ordered_song_ids
+
+def get_selected_songs_by_ids(all_songs, song_ids):
+    song_lookup = {song['song_id']: song for song in all_songs}
+    return [song_lookup[song_id] for song_id in song_ids if song_id in song_lookup]
+
+def parse_service_payload(form):
+    service_date = (form.get('service_date') or '').strip()
+    service_time = (form.get('service_time') or '09:00').strip() or '09:00'
+    leader_id_raw = (form.get('leader_id') or '').strip()
+    leader_id = int(leader_id_raw) if leader_id_raw else None
+    assignments_raw = form.get('role_assignments') or '[]'
+    song_ids_raw = form.get('song_ids') or '[]'
+
+    assignments_payload = json.loads(assignments_raw)
+    song_ids_payload = json.loads(song_ids_raw)
+
+    assignments = []
+    for assignment in assignments_payload:
+        role_name = (assignment.get('role') or '').strip()
+        user_id_raw = assignment.get('user_id')
+        if not role_name or user_id_raw in (None, ''):
+            continue
+        assignments.append({
+            'role': role_name,
+            'user_id': int(user_id_raw),
+        })
+
+    song_ids = normalize_song_ids(song_ids_payload)
+
+    if not service_date:
+        raise ValueError('Service date is required.')
+
+    return {
+        'service_name': 'Worship Service',
+        'service_type': 'Worship',
+        'service_date': service_date,
+        'service_time': service_time,
+        'leader_id': leader_id,
+        'assignments': assignments,
+        'song_ids': song_ids,
+    }
+
+def parse_json_list(raw_value):
+    try:
+        parsed = json.loads(raw_value or '[]')
+        return parsed if isinstance(parsed, list) else []
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+def save_service_relations(cursor, service_id, assignments, song_ids):
+    clear_musicians_for_service(cursor, service_id)
+    for assignment in assignments:
+        assign_musician(cursor, service_id, assignment['user_id'], assignment['role'])
+
+    clear_songs_for_service(cursor, service_id)
+    for index, song_id in enumerate(song_ids, start=1):
+        add_song_to_service(cursor, service_id, song_id, song_order=index)
+
+def load_service_page_context(selected_service_id=None, filter_user_id=None):
+    db, cursor = get_connection()
+    users = [serialize_user(user) for user in list_users(cursor)]
+    songs = [serialize_song(song) for song in list_songs(cursor)]
+    if filter_user_id is not None:
+        services = [dict(row) for row in list_services_for_user(cursor, filter_user_id)]
+    else:
+        services = [dict(row) for row in list_services(cursor)]
+
+    selected_service = None
+    if selected_service_id is not None:
+        selected_service = build_service_detail(cursor, get_service_by_id(cursor, selected_service_id))
+    elif services:
+        selected_service = build_service_detail(cursor, get_service_by_id(cursor, services[0]['service_id']))
+
+    db.close()
+    return users, songs, services, selected_service
+
 @app.route('/')
 def home():
-    return "Welcome to Service Scheduler!"
+    return render_template(
+        'home_view.html',
+        current_user=get_current_user(),
+        can_manage=is_leader(),
+        message=session.pop('message', None),
+    )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_route():
@@ -28,9 +215,19 @@ def login_route():
         db.close()
         
         if result['success']:
-            return jsonify({'success': True, 'user': result['user']})
+            session['user_id'] = result['user']['id']
+            session['username'] = result['user']['username']
+            session['role'] = result['user']['role']
+            session['message'] = f"Logged in as {result['user']['username']}."
+            return redirect('/')
         else:
             return render_template('login_view.html', message=result['message']), 401
+
+@app.route('/logout', methods=['POST'])
+def logout_route():
+    session.clear()
+    session['message'] = 'You have been logged out.'
+    return redirect('/login')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_route():
@@ -72,8 +269,10 @@ def verify_route():
         return render_template('verify_view.html', message="Invalid verification token.", token=session.get('verification_token'))
 
 @app.route('/songs', methods=['GET'])
+@require_login
 def songs_route():
     query = request.args.get('q', '').strip()
+    current_user = get_current_user()
 
     db, cursor = get_connection()
     if query:
@@ -95,12 +294,188 @@ def songs_route():
             "lyrics_pdf": row['lyrics_pdf'],
         })
 
-    return render_template('songs_view.html', songs=songs, query=query)
+    return render_template(
+        'songs_view.html',
+        songs=songs,
+        query=query,
+        current_user=current_user,
+        can_manage=is_leader(current_user),
+        message=session.pop('message', None),
+    )
+
+@app.route('/api/songs', methods=['GET'])
+@require_login
+def songs_api_route():
+    query = request.args.get('q', '').strip()
+
+    db, cursor = get_connection()
+    rows = search_song(cursor, query) if query else list_songs(cursor)
+    db.close()
+
+    return jsonify({'songs': [serialize_song(row) for row in rows]})
+
+@app.route('/services/new', methods=['GET', 'POST'])
+@require_leader('/services')
+def create_service_route():
+    users, songs, _, _ = load_service_page_context()
+    current_user = get_current_user()
+
+    if request.method == 'GET':
+        return render_template(
+            'create_service_view.html',
+            roles=SERVICE_ROLES,
+            users=users,
+            songs=songs,
+            message=None,
+            form_data={'service_date': '', 'service_time': '09:00', 'leader_id': ''},
+            selected_assignments=[],
+            selected_songs=[],
+            current_user=current_user,
+            can_manage=True,
+        )
+
+    try:
+        payload = parse_service_payload(request.form)
+    except (ValueError, TypeError, json.JSONDecodeError) as error:
+        selected_assignments = parse_json_list(request.form.get('role_assignments'))
+        selected_song_ids = [int(song_id) for song_id in parse_json_list(request.form.get('song_ids')) if str(song_id).strip()]
+        return render_template(
+            'create_service_view.html',
+            roles=SERVICE_ROLES,
+            users=users,
+            songs=songs,
+            message=str(error),
+            form_data={
+                'service_date': request.form.get('service_date', ''),
+                'service_time': request.form.get('service_time', '09:00'),
+                'leader_id': request.form.get('leader_id', ''),
+            },
+            selected_assignments=selected_assignments,
+            selected_songs=get_selected_songs_by_ids(songs, selected_song_ids),
+            current_user=current_user,
+            can_manage=True,
+        ), 400
+
+    db, cursor = get_connection()
+    service_id = create_service(
+        cursor,
+        payload['service_name'],
+        payload['service_type'],
+        payload['service_date'],
+        payload['service_time'],
+        payload['leader_id'],
+    )
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'])
+    db.commit()
+    db.close()
+
+    return redirect(f'/services/{service_id}')
+
+@app.route('/services', methods=['GET'])
+@require_login
+def services_route():
+    current_user = get_current_user()
+    member_filter = None if is_leader(current_user) else current_user['id']
+    users, songs, services, selected_service = load_service_page_context(filter_user_id=member_filter)
+    return render_template(
+        'services_view.html',
+        roles=SERVICE_ROLES,
+        users=users,
+        songs=songs,
+        services=services,
+        selected_service=selected_service,
+        message=session.pop('message', None),
+        current_user=current_user,
+        can_manage=is_leader(current_user),
+    )
+
+@app.route('/services/<int:service_id>', methods=['GET'])
+@require_login
+def service_detail_route(service_id):
+    current_user = get_current_user()
+    member_filter = None if is_leader(current_user) else current_user['id']
+    users, songs, services, selected_service = load_service_page_context(service_id, filter_user_id=member_filter)
+    if selected_service is None:
+        return redirect('/services')
+
+    return render_template(
+        'services_view.html',
+        roles=SERVICE_ROLES,
+        users=users,
+        songs=songs,
+        services=services,
+        selected_service=selected_service,
+        message=session.pop('message', None),
+        current_user=current_user,
+        can_manage=is_leader(current_user),
+    )
+
+@app.route('/services/<int:service_id>/edit', methods=['POST'])
+@require_leader('/services')
+def update_service_route(service_id):
+    try:
+        payload = parse_service_payload(request.form)
+    except (ValueError, TypeError, json.JSONDecodeError) as error:
+        current_user = get_current_user()
+        users, songs, services, selected_service = load_service_page_context(service_id)
+        if selected_service is None:
+            return redirect('/services')
+
+        selected_service['service_date'] = request.form.get('service_date', selected_service['service_date'])
+        selected_service['service_time'] = request.form.get('service_time', selected_service['service_time'])
+        selected_service['leader_id'] = request.form.get('leader_id', selected_service.get('leader_id') or '')
+        selected_service['assignments'] = parse_json_list(request.form.get('role_assignments'))
+        selected_song_ids = normalize_song_ids(parse_json_list(request.form.get('song_ids')))
+        selected_service['songs'] = get_selected_songs_by_ids(songs, selected_song_ids)
+
+        return render_template(
+            'services_view.html',
+            roles=SERVICE_ROLES,
+            users=users,
+            songs=songs,
+            services=services,
+            selected_service=selected_service,
+            message=str(error),
+            current_user=current_user,
+            can_manage=True,
+        ), 400
+
+    db, cursor = get_connection()
+    if get_service_by_id(cursor, service_id) is None:
+        db.close()
+        return redirect('/services')
+
+    update_service(
+        cursor,
+        service_id,
+        payload['service_name'],
+        payload['service_type'],
+        payload['service_date'],
+        payload['service_time'],
+        payload['leader_id'],
+    )
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'])
+    db.commit()
+    db.close()
+
+    return redirect(f'/services/{service_id}')
+
+@app.route('/services/<int:service_id>/delete', methods=['POST'])
+@require_leader('/services')
+def delete_service_route(service_id):
+    db, cursor = get_connection()
+    if get_service_by_id(cursor, service_id) is not None:
+        delete_service(cursor, service_id)
+        db.commit()
+    db.close()
+    return redirect('/services')
 
 @app.route('/add_song', methods=['GET', 'POST'])
+@require_leader('/songs')
 def add_song_route():
+    current_user = get_current_user()
     if request.method == 'GET':
-        return render_template('add_song_view.html')
+        return render_template('add_song_view.html', current_user=current_user, can_manage=True)
     
     if request.method == 'POST':
         title = request.form.get('title')
@@ -128,9 +503,10 @@ def add_song_route():
         if result['success']:
             return redirect('/songs')
         else:
-            return render_template('add_song_view.html', message=result['message'])
+            return render_template('add_song_view.html', message=result['message'], current_user=current_user, can_manage=True)
 
 @app.route('/song/<int:song_id>/chords.pdf')
+@require_login
 def get_chords_pdf(song_id):
     db, cursor = get_connection()
     cursor.execute("SELECT chords_pdf FROM songs WHERE song_id = ?", (song_id,))
@@ -143,6 +519,7 @@ def get_chords_pdf(song_id):
         return "PDF not found", 404
 
 @app.route('/song/<int:song_id>/lyrics.pdf')
+@require_login
 def get_lyrics_pdf(song_id):
     db, cursor = get_connection()
     cursor.execute("SELECT lyrics_pdf FROM songs WHERE song_id = ?", (song_id,))

@@ -23,6 +23,17 @@ def create_service(cursor, service_name: str, service_type, service_date, servic
     VALUES (?, ?, ?, ?, ?)
     ''', (service_name, service_type, service_date, service_time, leader_id))
 
+    return cursor.lastrowid
+
+def get_service_by_id(cursor, service_id: int):
+    cursor.execute('''
+    SELECT s.*, u.username AS leader_name
+    FROM services s
+    LEFT JOIN users u ON s.leader_id = u.id
+    WHERE s.service_id = ?
+    ''', (service_id,))
+    return cursor.fetchone()
+
 def get_service_by_type(cursor, service_type):
     cursor.execute('''
     SELECT * FROM services
@@ -48,6 +59,17 @@ def list_services(cursor):
     ''')
     return cursor.fetchall()
 
+def list_services_for_user(cursor, user_id: int):
+    cursor.execute('''
+    SELECT DISTINCT s.*, u.username AS leader_name
+    FROM services s
+    LEFT JOIN users u ON s.leader_id = u.id
+    LEFT JOIN service_musicians sm ON sm.service_id = s.service_id
+    WHERE sm.user_id = ? OR s.leader_id = ?
+    ORDER BY s.service_date, s.service_time
+    ''', (user_id, user_id))
+    return cursor.fetchall()
+
 def update_service(cursor, service_id, service_name, service_type, service_date, service_time, leader_id):
 
     service_date = normalize_date(service_date)
@@ -62,6 +84,9 @@ def update_service(cursor, service_id, service_name, service_type, service_date,
     leader_id = ?
     WHERE service_id = ?
     ''',(service_name, service_type, service_date, service_time, leader_id, service_id))
+
+    row = get_service_by_id(cursor, service_id)
+    return [row] if row else []
 
 def delete_service(cursor, service_id: int):
     cursor.execute('''
