@@ -1,0 +1,52 @@
+def create_invitations_table(cursor):
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS invitations (
+        invitation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        service_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        invitation_status TEXT NOT NULL,
+        invitation_date DATE NOT NULL,
+        invitation_time TIME NOT NULL,
+        FOREIGN KEY (service_id) REFERENCES services(service_id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        );  
+    ''')
+
+def create_invitation(cursor, service_id: int, user_id: int, invitation_status: str, invitation_date: str, invitation_time: str):
+    cursor.execute('''
+        INSERT INTO invitations (service_id, user_id, invitation_status, invitation_date, invitation_time)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (service_id, user_id, invitation_status, invitation_date, invitation_time))
+
+def get_invitations_by_user(cursor, user_id: int):
+    cursor.execute('''
+        SELECT i.*, s.service_name, s.service_date, s.service_time
+        FROM invitations i
+        JOIN services s ON i.service_id = s.service_id
+        WHERE i.user_id = ?
+        ORDER BY s.service_date, s.service_time
+    ''', (user_id,))
+    return cursor.fetchall()
+
+def get_invitations_by_service(cursor, service_id: int):
+    cursor.execute('''
+        SELECT i.*, u.username
+        FROM invitations i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.service_id = ?
+        ORDER BY i.invitation_date, i.invitation_time
+    ''', (service_id,))
+    return cursor.fetchall()
+
+def update_invitation_status(cursor, invitation_id: int, new_status: str):
+    cursor.execute('''
+        UPDATE invitations
+        SET invitation_status = ?
+        WHERE invitation_id = ?
+    ''', (new_status, invitation_id))
+
+def delete_invitation(cursor, invitation_id: int):
+    cursor.execute('''
+        DELETE FROM invitations
+        WHERE invitation_id = ?
+    ''', (invitation_id,))
