@@ -1,6 +1,13 @@
 from flask import Flask, render_template, request, jsonify, session, redirect
 from database.connection import get_connection
+from database.schema import create_database
 from features.songs.add_song_logic import add_new_song
+
+# Ensure DB schema is applied on app start without deleting existing data
+_db, _cursor = get_connection()
+create_database(_cursor)
+_db.commit()
+_db.close()
 from features.songs.songs_model import list_songs, search_song
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user

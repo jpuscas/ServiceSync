@@ -1,20 +1,19 @@
-from database.connection import get_connection
+from database.connection import get_connection, DEFAULT_DATABASE
 from database.schema import create_database
+import os
 
 def initialize_database():
+    db_already_exists = os.path.exists(DEFAULT_DATABASE)
+
     db, cursor = get_connection()
-
     create_database(cursor)
-
     db.commit()
-    
-    # Verify table was created
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = cursor.fetchall()
-    print([row['name'] for row in tables])
-    
     db.close()
+
+    if db_already_exists:
+        print(f'Database exists at {DEFAULT_DATABASE}. Schema initialized/checked without clearing data.')
+    else:
+        print(f'Database created at {DEFAULT_DATABASE}.')
 
 if __name__ == '__main__':
     initialize_database()
-    print('Database created successfully.')

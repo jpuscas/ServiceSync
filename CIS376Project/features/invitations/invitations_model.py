@@ -4,7 +4,7 @@ def create_invitations_table(cursor):
         invitation_id INTEGER PRIMARY KEY AUTOINCREMENT,
         service_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
-        invitation_status TEXT NOT NULL,
+        invitation_status TEXT NOT NULL DEFAULT 'Pending',
         invitation_date DATE NOT NULL,
         invitation_time TIME NOT NULL,
         FOREIGN KEY (service_id) REFERENCES services(service_id),
@@ -30,11 +30,41 @@ def get_invitations_by_user(cursor, user_id: int):
 
 def get_invitations_by_service(cursor, service_id: int):
     cursor.execute('''
-        SELECT i.*, u.username
+        SELECT i.*, u.username AS user_name
         FROM invitations i
         JOIN users u ON i.user_id = u.id
         WHERE i.service_id = ?
         ORDER BY i.invitation_date, i.invitation_time
+    ''', (service_id,))
+    return cursor.fetchall()
+
+def get_accepted_invitations_by_user(cursor, user_id: int):
+    cursor.execute('''
+        SELECT i.*, s.service_name, s.service_date, s.service_time
+        FROM invitations i
+        JOIN services s ON i.service_id = s.service_id
+        WHERE i.user_id = ? AND i.invitation_status = 'Accepted'
+        ORDER BY s.service_date, s.service_time
+    ''', (user_id,))
+    return cursor.fetchall()
+
+def get_declined_invitations_by_user(cursor, user_id: int):
+    cursor.execute('''
+        SELECT i.*, s.service_name, s.service_date, s.service_time
+        FROM invitations i
+        JOIN services s ON i.service_id = s.service_id
+        WHERE i.user_id = ? AND i.invitation_status = 'Declined'
+        ORDER BY s.service_date, s.service_time
+    ''', (user_id,))
+    return cursor.fetchall()
+
+def get_service_attendees(cursor, service_id: int):
+    cursor.execute('''
+        SELECT i.*, u.id AS user_id, u.username, u.email
+        FROM invitations i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.service_id = ? AND i.invitation_status = 'Accepted'
+        ORDER BY u.username
     ''', (service_id,))
     return cursor.fetchall()
 
@@ -44,6 +74,14 @@ def update_invitation_status(cursor, invitation_id: int, new_status: str):
         SET invitation_status = ?
         WHERE invitation_id = ?
     ''', (new_status, invitation_id))
+
+def accept_invitation(cursor, invitation_id: int):
+    update_invitation_status(cursor, invitation_id, 'Accepted')
+
+
+def decline_invitation(cursor, invitation_id: int):
+    update_invitation_status(cursor, invitation_id, 'Declined')
+
 
 def delete_invitation(cursor, invitation_id: int):
     cursor.execute('''
