@@ -73,8 +73,8 @@ def test_update_song_in_setlist():
 
     updated_setlist = update_song_in_setlist(cursor, 1, 'A', 75, 1, 1)
 
-    assert updated_setlist[0]['performance_key'] == 'A'
-    assert updated_setlist[0]['performance_tempo'] == 75
+    assert updated_setlist[0]['song_key'] == 'A'
+    assert updated_setlist[0]['song_tempo'] == 75
     assert updated_setlist[0]['song_order'] == 1
 
 def test_remove_song_from_service():
@@ -126,5 +126,5 @@ def test_partial_update():
     db.commit()
 
     setlist = get_service_setlist(cursor, 1)
-    assert setlist[0]['performance_key'] == 'Bb'
+    assert setlist[0]['song_key'] == 'Bb'
     assert setlist[0]['song_order'] == 5
