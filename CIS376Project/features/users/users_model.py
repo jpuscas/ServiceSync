@@ -56,7 +56,7 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
 
 def authenticate_user(cursor, username: str, password: str):
     cursor.execute('''
-    SELECT id, username, password, is_verified
+    SELECT id, username, password, role, is_verified
     FROM users 
     WHERE username = ?
     ''', (username,))
@@ -74,7 +74,8 @@ def authenticate_user(cursor, username: str, password: str):
     return {
         'id': user[0],
         'username': user[1],
-        'is_verified': user[3]
+        'role': user[3],
+        'is_verified': user[4]
     }
 
 def get_username_by_email(cursor, email: str):
@@ -90,6 +91,14 @@ def get_user_by_id(cursor, user_id: int):
     ''', (user_id,))
 
     return cursor.fetchone()
+
+def list_users(cursor):
+    cursor.execute('''
+    SELECT id, username, email, role
+    FROM users
+    ORDER BY username COLLATE NOCASE ASC
+    ''')
+    return cursor.fetchall()
 
 def update_password(cursor, user_id: int, new_password: str):
     new_hashed = hash_password(new_password)

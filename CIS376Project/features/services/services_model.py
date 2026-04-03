@@ -22,6 +22,17 @@ def create_service(cursor, service_name: str, service_type: str, service_date: s
     VALUES (?, ?, ?, ?, ?)
     ''', (service_name, service_type, service_date, service_time, leader_id))
 
+    return cursor.lastrowid
+
+def get_service_by_id(cursor, service_id: int):
+    cursor.execute('''
+    SELECT s.*, u.username AS leader_name
+    FROM services s
+    LEFT JOIN users u ON s.leader_id = u.id
+    WHERE s.service_id = ?
+    ''', (service_id,))
+    return cursor.fetchone()
+
 def get_service_by_type(cursor, service_type):
     cursor.execute('''
     SELECT * FROM services
@@ -47,6 +58,17 @@ def list_services(cursor):
     ''')
     return cursor.fetchall()
 
+def list_services_for_user(cursor, user_id: int):
+    cursor.execute('''
+    SELECT DISTINCT s.*, u.username AS leader_name
+    FROM services s
+    LEFT JOIN users u ON s.leader_id = u.id
+    LEFT JOIN service_musicians sm ON sm.service_id = s.service_id
+    WHERE sm.user_id = ? OR s.leader_id = ?
+    ORDER BY s.service_date, s.service_time
+    ''', (user_id, user_id))
+    return cursor.fetchall()
+
 def update_service_fields(cursor, service_id: int, **fields):
     """Update arbitrary service fields, normalizing dates/times."""
     if not fields:
@@ -69,7 +91,7 @@ def update_service_fields(cursor, service_id: int, **fields):
     cursor.execute(sql, tuple(params))
 
 def update_service(cursor, service_id, service_name=None, service_type=None, service_date=None, service_time=None, leader_id=None):
-    """Update service fields (legacy function)."""
+    """Update service fields."""
     fields = {}
     if service_name is not None: fields['service_name'] = service_name
     if service_type is not None: fields['service_type'] = service_type
@@ -77,6 +99,9 @@ def update_service(cursor, service_id, service_name=None, service_type=None, ser
     if service_time is not None: fields['service_time'] = service_time
     if leader_id is not None: fields['leader_id'] = leader_id
     update_service_fields(cursor, service_id, **fields)
+
+    row = get_service_by_id(cursor, service_id)
+    return [row] if row else []
 
 def delete_service(cursor, service_id: int):
     """Delete a service by ID."""
