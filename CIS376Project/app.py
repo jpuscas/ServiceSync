@@ -3,10 +3,17 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect
 from database.connection import get_connection
+from database.schema import create_database
 from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service
 from features.services.service_songs_model import add_song_to_service, clear_songs_for_service, get_songs_for_service
 from features.services.services_model import create_service, delete_service, get_service_by_id, list_services, list_services_for_user, update_service
 from features.songs.add_song_logic import add_new_song
+
+# Ensure DB schema is applied on app start without deleting existing data
+_db, _cursor = get_connection()
+create_database(_cursor)
+_db.commit()
+_db.close()
 from features.songs.songs_model import list_songs, search_song
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user

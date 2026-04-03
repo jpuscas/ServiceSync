@@ -3,6 +3,8 @@ from features.services.service_songs_model import create_service_songs_table
 from features.services.services_model import create_services_table
 from features.songs.songs_model import create_songs_table
 from features.users.users_model import create_users_table
+from features.invitations.invitations_model import create_invitations_table
+
 
 
 def _ensure_column(cursor, table_name, column_name, column_sql):
@@ -13,17 +15,20 @@ def _ensure_column(cursor, table_name, column_name, column_sql):
     cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}")
 
 def create_database(cursor):
+    # Table creation is idempotent to avoid recreating/clearing existing data.
     create_users_table(cursor)
     create_songs_table(cursor)
-    # Add new columns for PDFs if they don't exist
+
+    # Add new columns for PDFs if they don't exist (safe if DB already has them)
     try:
         cursor.execute("ALTER TABLE songs ADD COLUMN chords_pdf BLOB;")
-    except:
-        pass  # Column already exists
+    except Exception:
+        pass  # Column already exists or alter not needed
     try:
         cursor.execute("ALTER TABLE songs ADD COLUMN lyrics_pdf BLOB;")
-    except:
-        pass  # Column already exists
+    except Exception:
+        pass  # Column already exists or alter not needed
+
     create_services_table(cursor)
     _ensure_column(cursor, 'services', 'service_name', "service_name TEXT NOT NULL DEFAULT 'Worship Service'")
     _ensure_column(cursor, 'services', 'service_type', "service_type TEXT NOT NULL DEFAULT 'Worship'")
@@ -32,3 +37,4 @@ def create_database(cursor):
     _ensure_column(cursor, 'services', 'leader_id', 'leader_id INTEGER')
     create_musicians_table(cursor)
     create_service_songs_table(cursor)
+    create_invitations_table(cursor)

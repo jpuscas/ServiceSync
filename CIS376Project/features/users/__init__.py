@@ -1,13 +1,22 @@
 from .users_model import (
     create_users_table,
     create_user,
+    authenticate_user,
+    get_username_by_email,
     get_user_by_id,
     list_users,
-    update_user_password,
-    update_user_email,
+    update_password,
+    update_email,
+    set_role,
     delete_user,
+    hash_password,
+    verify_password,
+)
 )
 from .login_logic import login_user
 from .register_logic import register_user
 from .user_verification import verify_user
+<<<<<<< HEAD
 from .role_logic import assign_role
+=======
+>>>>>>> fixed-merge-issues
