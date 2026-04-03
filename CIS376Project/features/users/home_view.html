@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Scheduler</title>
+    <style>
+        :root {
+            --ink: #1f2937;
+            --muted: #64748b;
+            --card: rgba(255, 255, 255, 0.84);
+            --shadow: 0 22px 48px rgba(15, 23, 42, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(20, 83, 45, 0.18), transparent 26%),
+                radial-gradient(circle at bottom right, rgba(13, 148, 136, 0.18), transparent 30%),
+                linear-gradient(135deg, #f8efe1 0%, #e8efe8 100%);
+        }
+
+        .shell {
+            width: min(980px, 100%);
+            padding: 30px;
+            border-radius: 32px;
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(2.4rem, 5vw, 4.2rem);
+            line-height: 1;
+        }
+
+        p {
+            margin: 0 0 26px;
+            color: var(--muted);
+            font-size: 1.08rem;
+            max-width: 720px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--ink);
+        }
+
+        .pill form {
+            margin: 0;
+        }
+
+        .pill button,
+        .pill a {
+            border: none;
+            background: transparent;
+            color: var(--ink);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 0;
+        }
+
+        .alert {
+            margin: 0 0 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(20, 83, 45, 0.08);
+            color: var(--ink);
+        }
+
+        .card {
+            display: block;
+            padding: 22px;
+            border-radius: 22px;
+            text-decoration: none;
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.5);
+            box-shadow: var(--shadow);
+            color: var(--ink);
+        }
+
+        .card strong {
+            display: block;
+            font-size: 1.15rem;
+            margin-bottom: 6px;
+        }
+
+        .card span {
+            color: var(--muted);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="topbar">
+            {% if current_user %}
+                <div class="pill">{{ current_user.username }} • {{ current_user.role|title }}</div>
+                <div class="pill">
+                    <form method="POST" action="/logout">
+                        <button type="submit">Logout</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="pill"><a href="/login">Login</a></div>
+            {% endif %}
+        </div>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        <h1>Service Scheduler</h1>
+        <p>Start from the service planner, jump straight into creating a worship service, manage the song library, or head to login and registration.</p>
+        <div class="grid">
+            <a class="card" href="/services">
+                <strong>View Services</strong>
+                <span>Browse all services by date and open each one to view or edit the full plan.</span>
+            </a>
+            <a class="card" href="/songs">
+                <strong>Song Library</strong>
+                <span>Search the song database, review details, and add new songs to the catalog.</span>
+            </a>
+            {% if can_manage %}
+                <a class="card" href="/services/new">
+                    <strong>Create Service</strong>
+                    <span>Add roles, assign people, choose songs, and set the date and time in one page.</span>
+                </a>
+                <a class="card" href="/add_song">
+                    <strong>Add Song</strong>
+                    <span>Create new songs for the catalog. Only Leaders can add or edit content.</span>
+                </a>
+            {% elif current_user %}
+                <div class="card">
+                    <strong>Member Access</strong>
+                    <span>Members can view services and songs, but only Leaders can add or edit content.</span>
+                </div>
+            {% else %}
+                <a class="card" href="/login">
+                    <strong>Login</strong>
+                    <span>Sign in to view services and songs. Leader accounts can also add and edit content.</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

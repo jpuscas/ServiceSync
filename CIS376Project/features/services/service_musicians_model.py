@@ -28,6 +28,7 @@ def get_musicians_for_service(cursor, service_id: int):
     FROM service_musicians sm
     JOIN users u ON sm.user_id = u.id
     WHERE sm.service_id = ?
+    ORDER BY sm.musicians_id ASC
     ''', (service_id,))
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
@@ -78,3 +79,9 @@ def delete_musician(cursor, musicians_id: int):
     DELETE FROM service_musicians
     WHERE musicians_id = ?
     ''', (musicians_id,))
+
+def clear_musicians_for_service(cursor, service_id: int):
+    cursor.execute('''
+    DELETE FROM service_musicians
+    WHERE service_id = ?
+    ''', (service_id,))
