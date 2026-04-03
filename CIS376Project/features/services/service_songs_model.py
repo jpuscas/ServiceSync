@@ -6,57 +6,68 @@ def create_service_songs_table(cursor):
         service_song_id INTEGER PRIMARY KEY AUTOINCREMENT,
         service_id INTEGER NOT NULL,
         song_id INTEGER NOT NULL,
-        performance_key TEXT NOT NULL,
-        performance_tempo INTEGER,
-        song_order INTEGER NOT NULL,
+        custom_key TEXT,
+        custom_tempo INTEGER,
+        song_order INTEGER,
 
         UNIQUE(service_id, song_id),
 
         FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE CASCADE,
         FOREIGN KEY (song_id) REFERENCES songs(song_id) ON DELETE CASCADE
-    );
+        );
     ''')
 
-def add_song_to_service(cursor, service_id: int, song_id: int, p_key: str, p_tempo: int, order: int):
+def add_song_to_service(cursor, service_id: int, song_id: int, custom_key=None, custom_tempo=None, song_order=None):
     """Add a song to a service setlist."""
     cursor.execute('''
-    INSERT INTO service_songs (service_id, song_id, performance_key, performance_tempo, song_order)
+    INSERT INTO service_songs (service_id, song_id, custom_key, custom_tempo, song_order)
     VALUES (?, ?, ?, ?, ?)
-    ''', (service_id, song_id, p_key, p_tempo, order))
+    ''', (service_id, song_id, custom_key, custom_tempo, song_order))
     return cursor.lastrowid
 
-def get_service_setlist(cursor, service_id: int):
+def get_songs_for_service(cursor, service_id: int):
     cursor.execute('''
-    SELECT ss.*, s.title, s.artist
+    SELECT ss.service_song_id,
+           ss.service_id,
+           ss.song_id,
+           ss.song_order,
+           COALESCE(ss.custom_key, s.default_key) AS song_key,
+           COALESCE(ss.custom_tempo, s.default_tempo) AS song_tempo,
+           s.title,
+           s.artist,
+           s.default_key,
+           s.default_tempo,
+           s.youtube_url,
+           CASE WHEN s.chords_pdf IS NOT NULL THEN 1 ELSE 0 END AS has_chords_pdf,
+           CASE WHEN s.lyrics_pdf IS NOT NULL THEN 1 ELSE 0 END AS has_lyrics_pdf
     FROM service_songs ss
     JOIN songs s ON ss.song_id = s.song_id
     WHERE ss.service_id = ?
-    ORDER BY ss.song_order ASC
+    ORDER BY COALESCE(ss.song_order, 999999), ss.service_song_id ASC
     ''', (service_id,))
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+    return [dict(row) for row in rows]
 
-def update_service_song_fields(cursor, service_song_id: int, **fields):
-    """Update arbitrary service song fields."""
-    if not fields:
-        return
+def get_service_setlist(cursor, service_id: int):
+    # Alias for get_songs_for_service, kept for backward compatibility with existing tests.
+    return get_songs_for_service(cursor, service_id)
 
-    keys = []
-    params = []
-    for k, v in fields.items():
-        keys.append(f"{k} = ?")
-        params.append(v)
-
-    sql = f"UPDATE service_songs SET {', '.join(keys)} WHERE service_song_id = ?"
-    params.append(service_song_id)
-    cursor.execute(sql, tuple(params))
-
-def update_song_in_setlist(cursor, service_song_id: int, p_key: str, p_tempo: int, order: int, service_id):
-    """Update song in setlist (legacy function)."""
-    update_service_song_fields(cursor, service_song_id, performance_key=p_key, performance_tempo=p_tempo, song_order=order)
-    return get_service_setlist(cursor, service_id)
+def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_tempo, song_order, service_id):
+    cursor.execute('''
+    UPDATE service_songs
+    SET custom_key = ?, custom_tempo = ?, song_order = ?
+    WHERE service_song_id = ? AND service_id = ?
+    ''', (custom_key, custom_tempo, song_order, service_song_id, service_id))
+    return get_songs_for_service(cursor, service_id)
 
 def remove_song_from_service(cursor, service_song_id: int):
     cursor.execute('''
     DELETE FROM service_songs
     WHERE service_song_id = ?
     ''', (service_song_id,))
+
+def clear_songs_for_service(cursor, service_id: int):
+    cursor.execute('''
+    DELETE FROM service_songs
+    WHERE service_id = ?
+    ''', (service_id,))
