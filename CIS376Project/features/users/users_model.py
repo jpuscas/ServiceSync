@@ -119,7 +119,7 @@ def update_email(cursor, user_id: int, new_email: str):
 def set_role(cursor, user_id: int, new_role: str):
     cursor.execute('''
     UPDATE users
-    SET role = ?, 
+    SET role = ? 
     WHERE id = ?
     ''', (new_role, user_id))
 

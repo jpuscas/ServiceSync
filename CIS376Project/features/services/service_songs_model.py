@@ -1,3 +1,5 @@
+import sqlite3
+
 def create_service_songs_table(cursor):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS service_songs (
@@ -16,6 +18,7 @@ def create_service_songs_table(cursor):
     ''')
 
 def add_song_to_service(cursor, service_id: int, song_id: int, custom_key=None, custom_tempo=None, song_order=None):
+    """Add a song to a service setlist."""
     cursor.execute('''
     INSERT INTO service_songs (service_id, song_id, custom_key, custom_tempo, song_order)
     VALUES (?, ?, ?, ?, ?)

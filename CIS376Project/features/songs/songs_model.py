@@ -12,22 +12,25 @@ def create_songs_table(cursor):
         chords_pdf TEXT,
         lyrics_pdf TEXT,
         UNIQUE(title, artist)
-        );
+    );
     ''')
 
 def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None,
-                youtube_url = None, chords_pdf=None, lyrics_pdf=None):
+                youtube_url: str = None, chords_pdf: str = None, lyrics_pdf: str = None):
+    """Create a new song and return its ID, or None if duplicate."""
     try:
-       cursor.execute('''
-       INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ''', (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf))
+        cursor.execute('''
+        INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf))
 
-       return cursor.lastrowid
+        return cursor.lastrowid
+
     except sqlite3.IntegrityError:
-       return None
+        return None
 
 def get_song_by_id(cursor, song_id):
+    """Retrieve a song by ID."""
     cursor.execute('''
     SELECT * FROM songs
     WHERE song_id = ?
@@ -48,18 +51,32 @@ def search_song(cursor, search_term):
 
     return cursor.fetchall()
 
-def update_song(cursor, song_id, title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf):
-    cursor.execute('''
-    UPDATE songs
-    SET title = ?, 
-    artist = ?,
-    default_key = ?,
-    default_tempo = ?,
-    youtube_url = ?,
-    chords_pdf = ?,
-    lyrics_pdf = ?
-    WHERE song_id = ?
-    ''',(title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf, song_id))
+def update_song_fields(cursor, song_id: int, **fields):
+    """Update arbitrary song fields."""
+    if not fields:
+        return
+
+    keys = []
+    params = []
+    for k, v in fields.items():
+        keys.append(f"{k} = ?")
+        params.append(v)
+
+    sql = f"UPDATE songs SET {', '.join(keys)} WHERE song_id = ?"
+    params.append(song_id)
+    cursor.execute(sql, tuple(params))
+
+def update_song(cursor, song_id, title=None, artist=None, default_key=None, default_tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None):
+    """Update song fields (legacy function)."""
+    fields = {}
+    if title is not None: fields['title'] = title
+    if artist is not None: fields['artist'] = artist
+    if default_key is not None: fields['default_key'] = default_key
+    if default_tempo is not None: fields['default_tempo'] = default_tempo
+    if youtube_url is not None: fields['youtube_url'] = youtube_url
+    if chords_pdf is not None: fields['chords_pdf'] = chords_pdf
+    if lyrics_pdf is not None: fields['lyrics_pdf'] = lyrics_pdf
+    update_song_fields(cursor, song_id, **fields)
 
 def delete_song(cursor, song_id: int):
     cursor.execute('''
