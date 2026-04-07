@@ -12,11 +12,7 @@ from .users_model import (
     hash_password,
     verify_password,
 )
-)
 from .login_logic import login_user
 from .register_logic import register_user
 from .user_verification import verify_user
-<<<<<<< HEAD
-from .role_logic import assign_role
-=======
->>>>>>> fixed-merge-issues
+from .role_logic import set_member_role
