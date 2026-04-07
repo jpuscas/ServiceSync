@@ -9,64 +9,66 @@ def create_services_table(cursor):
         service_date DATE NOT NULL,
         service_time TIME NOT NULL,
         leader_id INTEGER,
+        org_id INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (leader_id) REFERENCES users(id)
     );
     ''')
 
-def create_service(cursor, service_name: str, service_type: str, service_date: str, service_time: str, leader_id: int):
+def create_service(cursor, service_name: str, service_type: str, service_date: str, service_time: str, leader_id: int, org_id: int = 1):
     service_date = normalize_date(service_date)
     service_time = normalize_time(service_time)
 
     cursor.execute('''
-    INSERT INTO services (service_name, service_type, service_date, service_time, leader_id)
-    VALUES (?, ?, ?, ?, ?)
-    ''', (service_name, service_type, service_date, service_time, leader_id))
+    INSERT INTO services (service_name, service_type, service_date, service_time, leader_id, org_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', (service_name, service_type, service_date, service_time, leader_id, org_id))
 
     return cursor.lastrowid
 
-def get_service_by_id(cursor, service_id: int):
+def get_service_by_id(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
     SELECT s.*, u.username AS leader_name
     FROM services s
     LEFT JOIN users u ON s.leader_id = u.id
-    WHERE s.service_id = ?
-    ''', (service_id,))
+    WHERE s.service_id = ? AND s.org_id = ?
+    ''', (service_id, org_id))
     return cursor.fetchone()
 
-def get_service_by_type(cursor, service_type):
+def get_service_by_type(cursor, service_type, org_id: int = 1):
     cursor.execute('''
     SELECT * FROM services
-    WHERE service_type = ?
+    WHERE service_type = ? AND org_id = ?
     ORDER BY service_date, service_time
-    ''', (service_type,))
+    ''', (service_type, org_id))
     return cursor.fetchall()
 
-def search_service(cursor, search_term):
+def search_service(cursor, search_term, org_id: int = 1):
     cursor.execute('''
     SELECT * FROM services
-    WHERE service_name LIKE ?
+    WHERE service_name LIKE ? AND org_id = ?
     ORDER BY service_date, service_time
-    ''', (f"%{search_term}%",))
+    ''', (f"%{search_term}%", org_id))
     return cursor.fetchall()
 
-def list_services(cursor):
+def list_services(cursor, org_id: int = 1):
     cursor.execute('''
     SELECT s.*, u.username AS leader_name
     FROM services s
     LEFT JOIN users u ON s.leader_id = u.id
+    WHERE s.org_id = ?
     ORDER BY service_date, service_time
-    ''')
+    ''', (org_id,))
     return cursor.fetchall()
 
-def list_services_for_user(cursor, user_id: int):
+def list_services_for_user(cursor, user_id: int, org_id: int = 1):
     cursor.execute('''
     SELECT DISTINCT s.*, u.username AS leader_name
     FROM services s
     LEFT JOIN users u ON s.leader_id = u.id
     LEFT JOIN service_musicians sm ON sm.service_id = s.service_id
-    WHERE sm.user_id = ? OR s.leader_id = ?
+    WHERE (sm.user_id = ? OR s.leader_id = ?) AND s.org_id = ?
     ORDER BY s.service_date, s.service_time
-    ''', (user_id, user_id))
+    ''', (user_id, user_id, org_id))
     return cursor.fetchall()
 
 def update_service_fields(cursor, service_id: int, **fields):
@@ -90,7 +92,7 @@ def update_service_fields(cursor, service_id: int, **fields):
     params.append(service_id)
     cursor.execute(sql, tuple(params))
 
-def update_service(cursor, service_id, service_name=None, service_type=None, service_date=None, service_time=None, leader_id=None):
+def update_service(cursor, service_id, service_name=None, service_type=None, service_date=None, service_time=None, leader_id=None, org_id: int = 1):
     """Update service fields."""
     fields = {}
     if service_name is not None: fields['service_name'] = service_name
@@ -100,12 +102,12 @@ def update_service(cursor, service_id, service_name=None, service_type=None, ser
     if leader_id is not None: fields['leader_id'] = leader_id
     update_service_fields(cursor, service_id, **fields)
 
-    row = get_service_by_id(cursor, service_id)
+    row = get_service_by_id(cursor, service_id, org_id)
     return [row] if row else []
 
-def delete_service(cursor, service_id: int):
+def delete_service(cursor, service_id: int, org_id: int = 1):
     """Delete a service by ID."""
     cursor.execute('''
     DELETE FROM services
-    WHERE service_id = ?
-    ''', (service_id,))
+    WHERE service_id = ? AND org_id = ?
+    ''', (service_id, org_id))

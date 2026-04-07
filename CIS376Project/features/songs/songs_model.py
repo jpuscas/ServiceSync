@@ -11,43 +11,44 @@ def create_songs_table(cursor):
         youtube_url TEXT,
         chords_pdf TEXT,
         lyrics_pdf TEXT,
-        UNIQUE(title, artist)
+        org_id INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(title, artist, org_id)
     );
     ''')
 
 def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None,
-                youtube_url: str = None, chords_pdf: str = None, lyrics_pdf: str = None):
+                youtube_url: str = None, chords_pdf: str = None, lyrics_pdf: str = None, org_id: int = 1):
     """Create a new song and return its ID, or None if duplicate."""
     try:
         cursor.execute('''
-        INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf))
+        INSERT INTO songs (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf, org_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (title, artist, default_key, default_tempo, youtube_url, chords_pdf, lyrics_pdf, org_id))
 
         return cursor.lastrowid
 
     except sqlite3.IntegrityError:
         return None
 
-def get_song_by_id(cursor, song_id):
+def get_song_by_id(cursor, song_id, org_id: int = 1):
     """Retrieve a song by ID."""
     cursor.execute('''
     SELECT * FROM songs
-    WHERE song_id = ?
-    ''', (song_id,))
+    WHERE song_id = ? AND org_id = ?
+    ''', (song_id, org_id))
     row = cursor.fetchone()
     return row if row else None
 
-def list_songs(cursor):
-    cursor.execute('SELECT * FROM songs')
+def list_songs(cursor, org_id: int = 1):
+    cursor.execute('SELECT * FROM songs WHERE org_id = ?', (org_id,))
     rows = cursor.fetchall()
     return rows
 
-def search_song(cursor, search_term):
+def search_song(cursor, search_term, org_id: int = 1):
     cursor.execute('''
     SELECT * FROM songs
-    WHERE title LIKE ? OR artist LIKE ?
-    ''', (f"%{search_term}%", f"%{search_term}%"))
+    WHERE (title LIKE ? OR artist LIKE ?) AND org_id = ?
+    ''', (f"%{search_term}%", f"%{search_term}%", org_id))
 
     return cursor.fetchall()
 

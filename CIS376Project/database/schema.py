@@ -17,7 +17,10 @@ def _ensure_column(cursor, table_name, column_name, column_sql):
 def create_database(cursor):
     # Table creation is idempotent to avoid recreating/clearing existing data.
     create_users_table(cursor)
+    _ensure_column(cursor, 'users', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')
+    
     create_songs_table(cursor)
+    _ensure_column(cursor, 'songs', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')
 
     # Add new columns for PDFs if they don't exist (safe if DB already has them)
     try:
@@ -35,6 +38,13 @@ def create_database(cursor):
     _ensure_column(cursor, 'services', 'service_date', "service_date DATE NOT NULL DEFAULT '1970-01-01'")
     _ensure_column(cursor, 'services', 'service_time', "service_time TIME NOT NULL DEFAULT '09:00'")
     _ensure_column(cursor, 'services', 'leader_id', 'leader_id INTEGER')
+    _ensure_column(cursor, 'services', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')
+    
     create_musicians_table(cursor)
+    _ensure_column(cursor, 'service_musicians', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')
+    
     create_service_songs_table(cursor)
+    _ensure_column(cursor, 'service_songs', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')
+    
     create_invitations_table(cursor)
+    _ensure_column(cursor, 'invitations', 'org_id', 'org_id INTEGER NOT NULL DEFAULT 1')

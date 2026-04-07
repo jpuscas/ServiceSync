@@ -6,51 +6,52 @@ def create_musicians_table(cursor):
         service_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         instrument TEXT NOT NULL,
-        UNIQUE(service_id, user_id, instrument),
+        org_id INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(service_id, user_id, instrument, org_id),
 
         FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     ''')
 
-def assign_musician(cursor, service_id: int, user_id: int, instrument: str):
+def assign_musician(cursor, service_id: int, user_id: int, instrument: str, org_id: int = 1):
     """Assign a musician to a service."""
     cursor.execute('''
-    INSERT INTO service_musicians (service_id, user_id, instrument)
-    VALUES (?, ?, ?)
-    ''', (service_id, user_id, instrument))
+    INSERT INTO service_musicians (service_id, user_id, instrument, org_id)
+    VALUES (?, ?, ?, ?)
+    ''', (service_id, user_id, instrument, org_id))
 
     return cursor.lastrowid  # assignment_id
 
-def get_musicians_for_service(cursor, service_id: int):
+def get_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.user_id, sm.instrument, u.username
     FROM service_musicians sm
     JOIN users u ON sm.user_id = u.id
-    WHERE sm.service_id = ?
+    WHERE sm.service_id = ? AND sm.org_id = ?
     ORDER BY sm.musicians_id ASC
-    ''', (service_id,))
+    ''', (service_id, org_id))
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
 
 #view all assignments for one musician
-def get_musicians_assignment(cursor, user_id: int):
+def get_musicians_assignment(cursor, user_id: int, org_id: int = 1):
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.instrument, s.service_name, s.service_date
     FROM service_musicians sm
     JOIN services s ON sm.service_id = s.service_id
-    WHERE sm.user_id = ?
+    WHERE sm.user_id = ? AND sm.org_id = ?
     ORDER BY s.service_date ASC
-    ''', (user_id,))
+    ''', (user_id, org_id))
 
     return cursor.fetchall()
 
-def get_instrument(cursor, service_id: int, instrument: str):
+def get_instrument(cursor, service_id: int, instrument: str, org_id: int = 1):
     cursor.execute('''
     SELECT user_id
     FROM service_musicians
-    WHERE service_id = ? AND instrument = ?
-    ''', (service_id, instrument))
+    WHERE service_id = ? AND instrument = ? AND org_id = ?
+    ''', (service_id, instrument, org_id))
     return cursor.fetchall()
 
 def update_musician_fields(cursor, musicians_id: int, **fields):
@@ -80,8 +81,8 @@ def delete_musician(cursor, musicians_id: int):
     WHERE musicians_id = ?
     ''', (musicians_id,))
 
-def clear_musicians_for_service(cursor, service_id: int):
+def clear_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
     DELETE FROM service_musicians
-    WHERE service_id = ?
-    ''', (service_id,))
+    WHERE service_id = ? AND org_id = ?
+    ''', (service_id, org_id))
