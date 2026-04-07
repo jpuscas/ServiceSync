@@ -5,19 +5,22 @@ def create_users_table(cursor):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        email TEXT NOT NULL,
         phone TEXT,
         
         password TEXT NOT NULL,
         
         role TEXT NOT NULL DEFAULT 'member',
+        org_id INTEGER NOT NULL DEFAULT 1,
         
         is_verified INTEGER NOT NULL DEFAULT 0,
         verification_token TEXT UNIQUE,
         
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(username, org_id),
+        UNIQUE(email, org_id)
         );
     ''')
 
@@ -30,18 +33,18 @@ def create_users_table(cursor):
         END;
         ''')
 
-def create_user(cursor, username: str, email: str, password: str): #other objects like phone can be added if necessary
+def create_user(cursor, username: str, email: str, password: str, org_id: int = 1): #other objects like phone can be added if necessary
     if password is None:
         raise sqlite3.IntegrityError("NOT NULL constraint failed: users.password")
 
     hashed_password = hash_password(password)
 
     cursor.execute('''
-    INSERT INTO users (username, email, password)
-    VALUES (?, ?, ?)    
-    ''', (username, email, hashed_password))
+    INSERT INTO users (username, email, password, org_id)
+    VALUES (?, ?, ?, ?)    
+    ''', (username, email, hashed_password, org_id))
     
-    return cursor.lastrowid #are we making this single organizational or multi?
+    return cursor.lastrowid
 
 def hash_password(password: str) -> str:
     password_bytes = password.encode ('utf-8')
@@ -54,12 +57,12 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
     stored_bytes = stored_hash.encode('utf-8')
     return bcrypt.checkpw(plain_bytes, stored_bytes)
 
-def authenticate_user(cursor, username: str, password: str):
+def authenticate_user(cursor, username: str, password: str, org_id: int = 1):
     cursor.execute('''
-    SELECT id, username, password, role, is_verified
+    SELECT id, username, password, role, is_verified, org_id
     FROM users 
-    WHERE username = ?
-    ''', (username,))
+    WHERE username = ? AND org_id = ?
+    ''', (username, org_id))
 
     user = cursor.fetchone()
 
@@ -75,7 +78,8 @@ def authenticate_user(cursor, username: str, password: str):
         'id': user[0],
         'username': user[1],
         'role': user[3],
-        'is_verified': user[4]
+        'is_verified': user[4],
+        'org_id': user[5]
     }
 
 def get_username_by_email(cursor, email: str):
@@ -92,12 +96,13 @@ def get_user_by_id(cursor, user_id: int):
 
     return cursor.fetchone()
 
-def list_users(cursor):
+def list_users(cursor, org_id: int = 1):
     cursor.execute('''
     SELECT id, username, email, role
     FROM users
+    WHERE org_id = ?
     ORDER BY username COLLATE NOCASE ASC
-    ''')
+    ''', (org_id,))
     return cursor.fetchall()
 
 def update_password(cursor, user_id: int, new_password: str):
