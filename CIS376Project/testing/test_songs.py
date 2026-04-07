@@ -154,3 +154,26 @@ def test_delete_song():
     deleted_song = get_song_by_id(cursor, 1)
 
     assert deleted_song is None
+
+def test_sql_injection_prevention_songs():
+    """Test that song search is protected against SQL injection."""
+    db, cursor = setup_db()
+
+    # Create a test song
+    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G', 120, 'youtube.com/amazinggrace')
+    db.commit()
+
+    # Test normal search works
+    results = search_song(cursor, 'Amazing')
+    assert len(results) == 1
+
+    # Test SQL injection attempt doesn't work
+    malicious_search = "' OR '1'='1"
+    results = search_song(cursor, malicious_search)
+    # Should return empty results, not all songs
+    assert len(results) == 0
+
+    # Test another injection attempt
+    malicious_search2 = "%' UNION SELECT * FROM users --"
+    results = search_song(cursor, malicious_search2)
+    assert len(results) == 0
