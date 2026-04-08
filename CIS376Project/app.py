@@ -3,15 +3,15 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect
 from database.connection import get_connection
-from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service
+from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service, smart_save_musicians, get_requests_for_user, update_musician_response, reset_musician_request, get_musician_row
 from features.services.service_songs_model import add_song_to_service, clear_songs_for_service, get_songs_for_service
 from features.services.services_model import create_service, delete_service, get_service_by_id, list_services, list_services_for_user, update_service
 from features.songs.add_song_logic import add_new_song
-from features.songs.songs_model import list_songs, search_song
+from features.songs.songs_model import list_songs, search_song, get_song_by_id, update_song, delete_song
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user
 from features.users.user_verification import verify_user
-from features.users.users_model import get_user_by_id, list_users
+from features.users.users_model import get_user_by_id, list_users, update_password, update_username, update_phone, update_name, update_email
 
 app = Flask(__name__, template_folder='features/users')
 app.secret_key = 'dev_secret_key'
@@ -93,6 +93,8 @@ def serialize_user(user_row):
     return {
         'id': user_row['id'],
         'username': user_row['username'],
+        'first_name': user_row['first_name'] or '',
+        'last_name': user_row['last_name'] or '',
         'email': user_row['email'],
         'role': user_row['role'],
     }
@@ -165,9 +167,7 @@ def parse_json_list(raw_value):
         return []
 
 def save_service_relations(cursor, service_id, assignments, song_ids):
-    clear_musicians_for_service(cursor, service_id)
-    for assignment in assignments:
-        assign_musician(cursor, service_id, assignment['user_id'], assignment['role'])
+    smart_save_musicians(cursor, service_id, assignments)
 
     clear_songs_for_service(cursor, service_id)
     for index, song_id in enumerate(song_ids, start=1):
@@ -238,9 +238,11 @@ def register_route():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
         
         db, cursor = get_connection()
-        result = register_user(cursor, username, email, password)
+        result = register_user(cursor, username, email, password, first_name, last_name)
         if result['success']:
             db.commit()
             session['verification_token'] = result['token']
@@ -470,6 +472,68 @@ def delete_service_route(service_id):
     db.close()
     return redirect('/services')
 
+@app.route('/my-requests', methods=['GET'])
+@require_login
+def my_requests_route():
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    requests = get_requests_for_user(cursor, current_user['id'])
+    db.close()
+    return render_template(
+        'my_requests_view.html',
+        requests=requests,
+        current_user=current_user,
+        can_manage=is_leader(current_user),
+        message=session.pop('message', None),
+    )
+
+@app.route('/requests/<int:musicians_id>/accept', methods=['POST'])
+@require_login
+def accept_request_route(musicians_id):
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    row = get_musician_row(cursor, musicians_id)
+    if row is None or row['user_id'] != current_user['id']:
+        db.close()
+        session['message'] = 'Request not found.'
+        return redirect('/my-requests')
+    update_musician_response(cursor, musicians_id, 1)
+    db.commit()
+    db.close()
+    session['message'] = 'You have accepted the request.'
+    return redirect('/my-requests')
+
+@app.route('/requests/<int:musicians_id>/decline', methods=['POST'])
+@require_login
+def decline_request_route(musicians_id):
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    row = get_musician_row(cursor, musicians_id)
+    if row is None or row['user_id'] != current_user['id']:
+        db.close()
+        session['message'] = 'Request not found.'
+        return redirect('/my-requests')
+    update_musician_response(cursor, musicians_id, 0)
+    db.commit()
+    db.close()
+    session['message'] = 'You have declined the request.'
+    return redirect('/my-requests')
+
+@app.route('/services/<int:service_id>/rerequest/<int:musicians_id>', methods=['POST'])
+@require_leader('/services')
+def rerequest_musician_route(service_id, musicians_id):
+    db, cursor = get_connection()
+    row = get_musician_row(cursor, musicians_id)
+    if row is None or row['service_id'] != service_id:
+        db.close()
+        session['message'] = 'Assignment not found.'
+        return redirect(f'/services/{service_id}')
+    reset_musician_request(cursor, musicians_id)
+    db.commit()
+    db.close()
+    session['message'] = 'Re-request sent.'
+    return redirect(f'/services/{service_id}')
+
 @app.route('/add_song', methods=['GET', 'POST'])
 @require_leader('/songs')
 def add_song_route():
@@ -504,6 +568,148 @@ def add_song_route():
             return redirect('/songs')
         else:
             return render_template('add_song_view.html', message=result['message'], current_user=current_user, can_manage=True)
+
+@app.route('/profile', methods=['GET'])
+@require_login
+def profile_route():
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    user_row = get_user_by_id(cursor, current_user['id'])
+    db.close()
+    return render_template(
+        'profile_view.html',
+        current_user=current_user,
+        user=user_row,
+        can_manage=is_leader(current_user),
+        message=session.pop('message', None),
+    )
+
+@app.route('/profile/name', methods=['POST'])
+@require_login
+def profile_update_name():
+    first_name = (request.form.get('first_name') or '').strip()
+    last_name = (request.form.get('last_name') or '').strip()
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    update_name(cursor, current_user['id'], first_name, last_name)
+    db.commit()
+    db.close()
+    session['message'] = 'Name updated.'
+    return redirect('/profile')
+
+@app.route('/profile/username', methods=['POST'])
+@require_login
+def profile_update_username():
+    new_username = (request.form.get('username') or '').strip()
+    if not new_username:
+        session['message'] = 'Username cannot be empty.'
+        return redirect('/profile')
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    try:
+        update_username(cursor, current_user['id'], new_username)
+        db.commit()
+        session['username'] = new_username
+        session['message'] = 'Username updated.'
+    except Exception:
+        session['message'] = 'That username is already taken.'
+    finally:
+        db.close()
+    return redirect('/profile')
+
+@app.route('/profile/email', methods=['POST'])
+@require_login
+def profile_update_email():
+    new_email = (request.form.get('email') or '').strip()
+    if not new_email:
+        session['message'] = 'Email cannot be empty.'
+        return redirect('/profile')
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    try:
+        update_email(cursor, current_user['id'], new_email)
+        db.commit()
+        session['message'] = 'Email updated.'
+    except Exception:
+        session['message'] = 'That email is already in use.'
+    finally:
+        db.close()
+    return redirect('/profile')
+
+@app.route('/profile/password', methods=['POST'])
+@require_login
+def profile_update_password():
+    new_password = request.form.get('password') or ''
+    if len(new_password) < 6:
+        session['message'] = 'Password must be at least 6 characters.'
+        return redirect('/profile')
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    update_password(cursor, current_user['id'], new_password)
+    db.commit()
+    db.close()
+    session['message'] = 'Password updated.'
+    return redirect('/profile')
+
+@app.route('/profile/phone', methods=['POST'])
+@require_login
+def profile_update_phone():
+    phone = (request.form.get('phone') or '').strip()
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    update_phone(cursor, current_user['id'], phone or None)
+    db.commit()
+    db.close()
+    session['message'] = 'Phone number updated.'
+    return redirect('/profile')
+
+@app.route('/song/<int:song_id>/edit', methods=['POST'])
+@require_leader('/songs')
+def edit_song_route(song_id):
+    db, cursor = get_connection()
+    existing = get_song_by_id(cursor, song_id)
+    if existing is None:
+        db.close()
+        return redirect('/songs')
+
+    title = (request.form.get('title') or '').strip()
+    artist = (request.form.get('artist') or '').strip()
+    key = (request.form.get('key') or '').strip()
+    tempo_raw = request.form.get('tempo', '').strip()
+    youtube_url = (request.form.get('youtube_url') or '').strip() or None
+
+    try:
+        tempo = int(tempo_raw) if tempo_raw else None
+    except ValueError:
+        tempo = None
+
+    chords_pdf = request.files.get('chords_pdf')
+    lyrics_pdf = request.files.get('lyrics_pdf')
+    chords_data = chords_pdf.read() if chords_pdf and chords_pdf.filename else existing['chords_pdf']
+    lyrics_data = lyrics_pdf.read() if lyrics_pdf and lyrics_pdf.filename else existing['lyrics_pdf']
+
+    if not title or not artist or not key:
+        session['message'] = 'Title, artist, and key are required.'
+        db.close()
+        return redirect('/songs')
+
+    update_song(cursor, song_id, title, artist, key, tempo, youtube_url, chords_data, lyrics_data)
+    db.commit()
+    db.close()
+    session['message'] = f'\u201c{title}\u201d updated successfully.'
+    return redirect('/songs')
+
+@app.route('/song/<int:song_id>/delete', methods=['POST'])
+@require_leader('/songs')
+def delete_song_route(song_id):
+    db, cursor = get_connection()
+    row = get_song_by_id(cursor, song_id)
+    if row:
+        delete_song(cursor, song_id)
+        db.commit()
+        session['message'] = f'\u201c{row["title"]}\u201d deleted.'
+    db.close()
+    return redirect('/songs')
 
 @app.route('/song/<int:song_id>/chords.pdf')
 @require_login

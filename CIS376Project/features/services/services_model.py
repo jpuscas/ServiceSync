@@ -65,7 +65,8 @@ def list_services_for_user(cursor, user_id: int):
     FROM services s
     LEFT JOIN users u ON s.leader_id = u.id
     LEFT JOIN service_musicians sm ON sm.service_id = s.service_id
-    WHERE sm.user_id = ? OR s.leader_id = ?
+    WHERE (sm.user_id = ? AND (sm.accepted IS NULL OR sm.accepted = 1))
+       OR s.leader_id = ?
     ORDER BY s.service_date, s.service_time
     ''', (user_id, user_id))
     return cursor.fetchall()

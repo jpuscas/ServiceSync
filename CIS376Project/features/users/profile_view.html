@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile</title>
+    <style>
+        :root {
+            --ink: #1f2937;
+            --muted: #64748b;
+            --line: rgba(31, 41, 55, 0.12);
+            --paper: #f5efe4;
+            --card: rgba(255, 255, 255, 0.86);
+            --brand: #14532d;
+            --brand-soft: rgba(20, 83, 45, 0.1);
+            --accent: #b45309;
+            --danger: #991b1b;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(20, 83, 45, 0.14), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.16), transparent 30%),
+                linear-gradient(135deg, #f7f1e5 0%, #e8efe8 100%);
+        }
+
+        .page {
+            width: min(680px, calc(100% - 26px));
+            margin: 30px auto;
+            padding: 0 0 40px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 26px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
+
+        .back-link {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.7);
+            color: var(--ink);
+            font-size: 0.94rem;
+            border: 1px solid var(--line);
+        }
+
+        .back-link:hover { background: rgba(255,255,255,0.95); }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+        }
+
+        .topbar-meta { display: flex; align-items: center; gap: 10px; }
+
+        .logout-btn {
+            border: none;
+            border-radius: 999px;
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+            padding: 10px 14px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .alert {
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(20, 83, 45, 0.1);
+            border: 1px solid rgba(20, 83, 45, 0.2);
+            color: #14532d;
+            font-size: 0.97rem;
+        }
+
+        .alert.error {
+            background: rgba(185, 28, 28, 0.08);
+            border-color: rgba(185, 28, 28, 0.18);
+            color: #7f1d1d;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 26px 28px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(10px);
+            margin-bottom: 18px;
+        }
+
+        .card h2 {
+            margin: 0 0 20px;
+            font-size: 1.2rem;
+            color: var(--brand);
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 10px;
+        }
+
+        /* Info rows */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--line);
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+        .info-label {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            min-width: 110px;
+        }
+
+        .info-value {
+            flex: 1;
+            font-size: 1.03rem;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            background: var(--brand-soft);
+            color: var(--brand);
+        }
+
+        /* Edit forms (hidden by default) */
+        .edit-form {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .edit-form.visible { display: flex; }
+
+        .edit-form input {
+            padding: 11px 14px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            font: inherit;
+            font-size: 1rem;
+            color: var(--ink);
+            background: rgba(255,255,255,0.9);
+            outline: none;
+            width: 100%;
+        }
+
+        .edit-form input:focus {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(20, 83, 45, 0.12);
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-save {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 999px;
+            background: var(--brand);
+            color: white;
+            font: inherit;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .btn-save:hover { background: #166534; }
+
+        .btn-cancel {
+            padding: 10px 16px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--muted);
+            font: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .btn-cancel:hover { background: rgba(0,0,0,0.04); }
+
+        .btn-edit {
+            padding: 7px 16px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: rgba(255,255,255,0.7);
+            color: var(--ink);
+            font: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-edit:hover { background: rgba(255,255,255,0.95); }
+
+        .btn-add-phone {
+            padding: 7px 16px;
+            border: 1px solid rgba(20,83,45,0.3);
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand);
+            font: inherit;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-add-phone:hover { background: rgba(20,83,45,0.18); }
+
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .password-wrapper input {
+            padding-right: 48px;
+        }
+
+        .btn-show-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 1.1rem;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .btn-show-password:hover { color: var(--ink); }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="/" class="back-link">← Home</a>
+            <h1>My Profile</h1>
+        </div>
+        <div class="topbar-meta">
+            <form method="POST" action="/logout">
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    {% if message %}
+        <div class="alert {% if 'empty' in message or 'least' in message or 'taken' in message %}error{% endif %}">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    <!-- Account Info -->
+    <div class="card">
+        <h2>Account Information</h2>
+
+        <!-- First & Last Name -->
+        <div class="info-row">
+            <span class="info-label">Name</span>
+            <span class="info-value" id="name-display">
+                {% if user['first_name'] or user['last_name'] %}
+                    {{ (user['first_name'] or '') ~ ' ' ~ (user['last_name'] or '') }}
+                {% else %}
+                    <em style="color: var(--muted);">Not set</em>
+                {% endif %}
+            </span>
+            <button class="btn-edit" onclick="toggleEdit('name')">Change</button>
+        </div>
+        <form method="POST" action="/profile/name" class="edit-form" id="name-form">
+            <div style="display:flex; gap:10px;">
+                <input type="text" name="first_name" value="{{ user['first_name'] or '' }}" placeholder="First name" maxlength="64" style="flex:1;" />
+                <input type="text" name="last_name" value="{{ user['last_name'] or '' }}" placeholder="Last name" maxlength="64" style="flex:1;" />
+            </div>
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="toggleEdit('name')">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Username -->
+        <div class="info-row">
+            <span class="info-label">Username</span>
+            <span class="info-value" id="username-display">{{ user['username'] }}</span>
+            <button class="btn-edit" onclick="toggleEdit('username')">Change</button>
+        </div>
+        <form method="POST" action="/profile/username" class="edit-form" id="username-form">
+            <input type="text" name="username" value="{{ user['username'] }}" required maxlength="64" />
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="toggleEdit('username')">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Email -->
+        <div class="info-row">
+            <span class="info-label">Email</span>
+            <span class="info-value" id="email-display">{{ user['email'] }}</span>
+            <button class="btn-edit" onclick="toggleEdit('email')">Change</button>
+        </div>
+        <form method="POST" action="/profile/email" class="edit-form" id="email-form">
+            <input type="email" name="email" value="{{ user['email'] }}" required maxlength="254" />
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="toggleEdit('email')">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Phone -->
+        <div class="info-row">
+            <span class="info-label">Phone</span>
+            <span class="info-value" id="phone-display">
+                {% if user['phone'] %}
+                    {{ user['phone'] }}
+                {% else %}
+                    <em style="color: var(--muted);">Not set</em>
+                {% endif %}
+            </span>
+            {% if user['phone'] %}
+                <button class="btn-edit" onclick="toggleEdit('phone')">Change</button>
+            {% else %}
+                <button class="btn-add-phone" onclick="toggleEdit('phone')">+ Add Phone Number</button>
+            {% endif %}
+        </div>
+        <form method="POST" action="/profile/phone" class="edit-form" id="phone-form">
+            <input type="tel" name="phone" value="{{ user['phone'] or '' }}" placeholder="e.g. 555-867-5309" maxlength="30" />
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="toggleEdit('phone')">Cancel</button>
+            </div>
+        </form>
+
+        <!-- Role -->
+        <div class="info-row">
+            <span class="info-label">Role</span>
+            <span class="info-value">
+                <span class="role-badge">{{ user['role']|title }}</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- Change Password -->
+    <div class="card">
+        <h2>Change Password</h2>
+        <form method="POST" action="/profile/password" class="edit-form visible" style="margin-top:0;">
+            <div class="password-wrapper">
+                <input type="password" id="new-password" name="password" placeholder="New password (min. 6 characters)" required minlength="6" autocomplete="new-password" />
+                <button type="button" class="btn-show-password" onclick="togglePasswordVisibility()" title="Show/hide password">👁</button>
+            </div>
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Update Password</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<script>
+    function toggleEdit(section) {
+        const form = document.getElementById(section + '-form');
+        form.classList.toggle('visible');
+    }
+
+    function togglePasswordVisibility() {
+        const input = document.getElementById('new-password');
+        const btn = input.nextElementSibling;
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.title = 'Hide password';
+            btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            btn.title = 'Show password';
+            btn.textContent = '👁';
+        }
+    }
+</script>
+</body>
+</html>

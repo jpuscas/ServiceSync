@@ -246,7 +246,7 @@
         }
 
         .assignment {
-            grid-template-columns: 190px 1fr auto;
+            grid-template-columns: 190px 1fr auto auto;
         }
 
         .selected-song,
@@ -348,6 +348,65 @@
             cursor: pointer;
         }
 
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            font-family: sans-serif;
+        }
+
+        .badge-pending {
+            background: rgba(180, 83, 9, 0.12);
+            color: var(--accent);
+        }
+
+        .badge-accepted {
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+        }
+
+        .denied-section {
+            margin-top: 18px;
+            padding: 14px 16px;
+            border-radius: 18px;
+            border: 1px solid rgba(153, 27, 27, 0.2);
+            background: rgba(153, 27, 27, 0.04);
+        }
+
+        .denied-section h3 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+            color: var(--danger);
+        }
+
+        .denied-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 0;
+            border-top: 1px solid rgba(153, 27, 27, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .denied-row:first-of-type {
+            border-top: none;
+        }
+
+        .btn-rerequest {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(20, 83, 45, 0.1);
+            color: var(--brand);
+            font: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .save-row {
             display: flex;
             justify-content: flex-end;
@@ -401,6 +460,7 @@
                 <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
                 <div class="topbar-links">
                     <a href="/">Home</a>
+                    <a href="/my-requests">Back to Requests</a>
                     {% if can_manage %}
                         <a href="/services/new">Create New Service</a>
                     {% endif %}
@@ -425,7 +485,9 @@
                             <span>{{ service.service_time }}{% if service.leader_name %} • Leader: {{ service.leader_name }}{% endif %}</span>
                         </a>
                     {% else %}
-                        <div class="empty">No services have been created yet.</div>
+                        {% if can_manage %}
+                            <div class="empty">No services have been created yet.</div>
+                        {% endif %}
                     {% endfor %}
                 </div>
             </aside>
@@ -452,7 +514,7 @@
                                 <select id="leader-id" name="leader_id" {% if not can_manage %}disabled{% endif %}>
                                     <option value="">No leader selected</option>
                                     {% for user in users %}
-                                        <option value="{{ user.id }}" {% if selected_service.leader_id|string == user.id|string %}selected{% endif %}>{{ user.username }}{% if user.role %} • {{ user.role }}{% endif %}</option>
+                                        <option value="{{ user.id }}" {% if selected_service.leader_id|string == user.id|string %}selected{% endif %}>{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% else %}{{ user.username }}{% endif %}{% if user.role %} • {{ user.role }}{% endif %}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -470,6 +532,11 @@
                         {% endif %}
                         <div id="assignment-list" class="assignment-list"></div>
                         <input type="hidden" id="role-assignments" name="role_assignments">
+
+                        <div class="denied-section" id="denied-section" style="display:none;">
+                            <h3>Declined Requests</h3>
+                            <div id="denied-list"></div>
+                        </div>
 
                         <div class="section-head">
                             <h2 style="margin: 0;">Songs</h2>
@@ -507,7 +574,11 @@
                         </div>
                     {% endif %}
                 {% else %}
-                    <div class="empty">Pick a service from the list or create a new one.</div>
+                    {% if can_manage %}
+                        <div class="empty">Pick a service from the list or create a new one.</div>
+                    {% else %}
+                        <div class="empty">You have no services right now.</div>
+                    {% endif %}
                 {% endif %}
             </main>
         </div>
@@ -518,12 +589,16 @@
         const canManage = JSON.parse('{{ can_manage|tojson }}');
         const availableUsers = JSON.parse('{{ users|tojson }}');
         const allSongs = JSON.parse('{{ songs|tojson }}');
+        const serviceId = JSON.parse('{{ selected_service.service_id|tojson }}');
+        const allAssignments = JSON.parse('{{ selected_service.assignments|tojson }}');
         const state = {
-            assignments: JSON.parse('{{ selected_service.assignments|tojson }}'),
+            assignments: allAssignments.filter(a => a.accepted !== 0),
+            deniedAssignments: allAssignments.filter(a => a.accepted === 0),
             selectedSongs: JSON.parse('{{ selected_service.songs|tojson }}')
         };
 
         const assignmentList = document.getElementById('assignment-list');
+        const deniedList = document.getElementById('denied-list');
         const roleAssignmentsInput = document.getElementById('role-assignments');
         const songBrowser = document.getElementById('song-browser');
         const selectedSongs = document.getElementById('selected-songs');
@@ -564,7 +639,10 @@
                     availableUsers.forEach((user) => {
                         const option = document.createElement('option');
                         option.value = user.id;
-                        option.textContent = user.role ? `${user.username} • ${user.role}` : user.username;
+                        const displayName = (user.first_name || user.last_name)
+                            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                            : user.username;
+                        option.textContent = user.role ? `${displayName} • ${user.role}` : displayName;
                         if (String(assignment.user_id || '') === String(user.id)) {
                             option.selected = true;
                         }
@@ -575,6 +653,11 @@
                         syncHiddenInputs();
                     });
 
+                    // Status badge
+                    const badge = document.createElement('span');
+                    badge.className = 'status-badge ' + (assignment.accepted === 1 ? 'badge-accepted' : (assignment.accepted === null || assignment.accepted == null ? 'badge-pending' : ''));
+                    badge.textContent = assignment.accepted === 1 ? 'Accepted' : 'Pending';
+
                     const remove = document.createElement('button');
                     remove.type = 'button';
                     remove.textContent = 'Remove';
@@ -584,17 +667,58 @@
                     });
 
                     wrapper.appendChild(select);
+                    wrapper.appendChild(badge);
                     wrapper.appendChild(remove);
                 } else {
+                    const displayName = (assignment.first_name || assignment.last_name)
+                        ? `${assignment.first_name || ''} ${assignment.last_name || ''}`.trim()
+                        : assignment.username || 'Unassigned';
                     const person = document.createElement('div');
-                    person.textContent = assignment.username || 'Unassigned';
+                    person.textContent = displayName;
                     wrapper.appendChild(person);
+
+                    const badge = document.createElement('span');
+                    badge.className = 'status-badge ' + (assignment.accepted === 1 ? 'badge-accepted' : 'badge-pending');
+                    badge.textContent = assignment.accepted === 1 ? 'Accepted' : 'Pending';
+                    wrapper.appendChild(badge);
                 }
 
                 assignmentList.appendChild(wrapper);
             });
 
             syncHiddenInputs();
+            renderDenied();
+        }
+
+        function renderDenied() {
+            if (!deniedList) return;
+            const section = document.getElementById('denied-section');
+            deniedList.innerHTML = '';
+            if (!state.deniedAssignments.length) {
+                if (section) section.style.display = 'none';
+                return;
+            }
+            if (section) section.style.display = '';
+            state.deniedAssignments.forEach((assignment) => {
+                const displayName = (assignment.first_name || assignment.last_name)
+                    ? `${assignment.first_name || ''} ${assignment.last_name || ''}`.trim()
+                    : assignment.username || 'Unknown';
+                const row = document.createElement('div');
+                row.className = 'denied-row';
+                row.innerHTML = `<span><strong>${displayName}</strong> &mdash; ${assignment.instrument || assignment.role} &mdash; <em style="color:var(--danger)">Rejected Request</em></span>`;
+                if (canManage) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/services/${serviceId}/rerequest/${assignment.musicians_id}`;
+                    const btn = document.createElement('button');
+                    btn.type = 'submit';
+                    btn.className = 'btn-rerequest';
+                    btn.textContent = 'Re-request';
+                    form.appendChild(btn);
+                    row.appendChild(form);
+                }
+                deniedList.appendChild(row);
+            });
         }
 
         function songMeta(song) {

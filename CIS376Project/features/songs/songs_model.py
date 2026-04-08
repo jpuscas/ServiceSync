@@ -9,6 +9,8 @@ def create_songs_table(cursor):
         default_key TEXT NOT NULL,
         default_tempo INTEGER,
         youtube_url TEXT,
+        chords_pdf BLOB,
+        lyrics_pdf BLOB,
         UNIQUE(title, artist)
         );
     ''')

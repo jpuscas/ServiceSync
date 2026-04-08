@@ -19,6 +19,3 @@ def set_member_role(user_id, new_role):
         }
     finally:
         db.close()
-
-
-
