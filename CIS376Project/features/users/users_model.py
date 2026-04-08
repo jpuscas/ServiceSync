@@ -5,8 +5,10 @@ def create_users_table(cursor):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        email TEXT NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
+        email TEXT UNIQUE NOT NULL,
         phone TEXT,
         
         password TEXT NOT NULL,
@@ -33,16 +35,16 @@ def create_users_table(cursor):
         END;
         ''')
 
-def create_user(cursor, username: str, email: str, password: str, org_id: int = 1): #other objects like phone can be added if necessary
+def create_user(cursor, username: str, email: str, password: str, first_name: str = None, last_name: str = None, org_id: int = 1): #other objects like phone can be added if necessary
     if password is None:
         raise sqlite3.IntegrityError("NOT NULL constraint failed: users.password")
 
     hashed_password = hash_password(password)
 
     cursor.execute('''
-    INSERT INTO users (username, email, password, org_id)
-    VALUES (?, ?, ?, ?)    
-    ''', (username, email, hashed_password, org_id))
+    INSERT INTO users (username, first_name, last_name, email, password, org_id)
+    VALUES (?, ?, ?, ?, ?, ?)    
+    ''', (username, first_name or None, last_name or None, email, hashed_password, org_id))
     
     return cursor.lastrowid
 
@@ -98,7 +100,7 @@ def get_user_by_id(cursor, user_id: int):
 
 def list_users(cursor, org_id: int = 1):
     cursor.execute('''
-    SELECT id, username, email, role
+    SELECT id, username, first_name, last_name, email, role
     FROM users
     WHERE org_id = ?
     ORDER BY username COLLATE NOCASE ASC
@@ -120,6 +122,27 @@ def update_email(cursor, user_id: int, new_email: str):
     SET email = ?
     WHERE id = ?
     ''', (new_email, user_id))
+
+def update_username(cursor, user_id: int, new_username: str):
+    cursor.execute('''
+    UPDATE users
+    SET username = ?
+    WHERE id = ?
+    ''', (new_username, user_id))
+
+def update_name(cursor, user_id: int, first_name: str, last_name: str):
+    cursor.execute('''
+    UPDATE users
+    SET first_name = ?, last_name = ?
+    WHERE id = ?
+    ''', (first_name or None, last_name or None, user_id))
+
+def update_phone(cursor, user_id: int, phone: str):
+    cursor.execute('''
+    UPDATE users
+    SET phone = ?
+    WHERE id = ?
+    ''', (phone, user_id))
 
 def set_role(cursor, user_id: int, new_role: str):
     cursor.execute('''

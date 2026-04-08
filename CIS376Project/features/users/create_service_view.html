@@ -399,7 +399,7 @@
                             <option value="">No leader selected</option>
                             {% for user in users %}
                                 {% if user.role and user.role|lower == 'leader' %}
-                                    <option value="{{ user.id }}" {% if form_data.leader_id|string == user.id|string %}selected{% endif %}>{{ user.username }}{% if user.role %} • {{ user.role }}{% endif %}</option>
+                                    <option value="{{ user.id }}" {% if form_data.leader_id|string == user.id|string %}selected{% endif %}>{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% else %}{{ user.username }}{% endif %}{% if user.role %} • {{ user.role }}{% endif %}</option>
                                 {% endif %}
                             {% endfor %}
                         </select>
@@ -483,7 +483,10 @@
                 users.forEach((user) => {
                     const option = document.createElement('option');
                     option.value = user.id;
-                    option.textContent = user.role ? `${user.username} • ${user.role}` : user.username;
+                    const displayName = (user.first_name || user.last_name)
+                        ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                        : user.username;
+                    option.textContent = user.role ? `${displayName} • ${user.role}` : displayName;
                     if (String(assignment.user_id || '') === String(user.id)) {
                         option.selected = true;
                     }
