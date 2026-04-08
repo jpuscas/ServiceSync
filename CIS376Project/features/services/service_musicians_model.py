@@ -7,7 +7,9 @@ def create_musicians_table(cursor):
         user_id INTEGER NOT NULL,
         instrument TEXT NOT NULL,
         org_id INTEGER NOT NULL DEFAULT 1,
+        accepted INTEGER DEFAULT NULL,
         UNIQUE(service_id, user_id, instrument, org_id),
+
 
         FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -25,11 +27,13 @@ def assign_musician(cursor, service_id: int, user_id: int, instrument: str, org_
 
 def get_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
-    SELECT sm.musicians_id, sm.service_id, sm.user_id, sm.instrument, u.username
+    SELECT sm.musicians_id, sm.service_id, sm.user_id, sm.instrument, sm.accepted,
+           u.username, u.first_name, u.last_name
     FROM service_musicians sm
     JOIN users u ON sm.user_id = u.id
     WHERE sm.service_id = ? AND sm.org_id = ?
-    ORDER BY sm.musicians_id ASC
+    ORDER BY CASE WHEN sm.accepted = 1 THEN 0 WHEN sm.accepted IS NULL THEN 1 ELSE 2 END,
+             sm.musicians_id ASC
     ''', (service_id, org_id))
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
@@ -86,3 +90,60 @@ def clear_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     DELETE FROM service_musicians
     WHERE service_id = ? AND org_id = ?
     ''', (service_id, org_id))
+
+def smart_save_musicians(cursor, service_id: int, assignments: list):
+    """Sync musicians for a service while preserving accepted/denied responses."""
+    cursor.execute(
+        'SELECT musicians_id, user_id, instrument, accepted FROM service_musicians WHERE service_id = ?',
+        (service_id,)
+    )
+    existing = {(row['user_id'], row['instrument']): dict(row) for row in cursor.fetchall()}
+
+    new_set = {(int(a['user_id']), a['role']): a for a in assignments}
+
+    # Delete active rows (NULL or accepted=1) that are no longer in new assignments
+    for (uid, instr), row in list(existing.items()):
+        if row['accepted'] != 0:  # NULL or 1 are manageable
+            if (uid, instr) not in new_set:
+                cursor.execute('DELETE FROM service_musicians WHERE musicians_id = ?', (row['musicians_id'],))
+
+    # Insert new rows that don't already exist
+    for (uid, instr), assignment in new_set.items():
+        if (uid, instr) not in existing:
+            cursor.execute(
+                'INSERT INTO service_musicians (service_id, user_id, instrument) VALUES (?, ?, ?)',
+                (service_id, uid, instr)
+            )
+
+def get_requests_for_user(cursor, user_id: int):
+    """Return all service requests for a user, pending first then denied then accepted."""
+    cursor.execute('''
+    SELECT sm.musicians_id, sm.service_id, sm.instrument, sm.accepted,
+           s.service_date, s.service_time, s.service_name
+    FROM service_musicians sm
+    JOIN services s ON sm.service_id = s.service_id
+    WHERE sm.user_id = ?
+    ORDER BY CASE WHEN sm.accepted IS NULL THEN 0 WHEN sm.accepted = 0 THEN 1 ELSE 2 END,
+             s.service_date ASC
+    ''', (user_id,))
+    return [dict(row) for row in cursor.fetchall()]
+
+def update_musician_response(cursor, musicians_id: int, accepted: int):
+    cursor.execute('''
+    UPDATE service_musicians SET accepted = ? WHERE musicians_id = ?
+    ''', (accepted, musicians_id))
+
+def reset_musician_request(cursor, musicians_id: int):
+    cursor.execute('''
+    UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ?
+    ''', (musicians_id,))
+
+def get_musician_row(cursor, musicians_id: int):
+    cursor.execute('''
+    SELECT sm.*, u.username, u.first_name, u.last_name
+    FROM service_musicians sm
+    JOIN users u ON sm.user_id = u.id
+    WHERE sm.musicians_id = ?
+    ''', (musicians_id,))
+    row = cursor.fetchone()
+    return dict(row) if row else None

@@ -14,6 +14,7 @@ def create_songs_table(cursor):
         org_id INTEGER NOT NULL DEFAULT 1,
         UNIQUE(title, artist, org_id)
     );
+
     ''')
 
 def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None,

@@ -3,10 +3,12 @@ from features.users.users_model import create_user, get_username_by_email
 from features.users.login_logic import login_user
 from features.users.user_verification import generate_verification_token, set_verification_code
 
-def register_user(cursor, username: str, email: str, password: str):
+def register_user(cursor, username: str, email: str, password: str, first_name: str = None, last_name: str = None):
     username = (username or "").strip()
     email = (email or "").strip().lower()
     password = password or ""
+    first_name = (first_name or "").strip() or None
+    last_name = (last_name or "").strip() or None
 
     #if one of the fields is left blank
     if not username or not email or not password:
@@ -32,7 +34,7 @@ def register_user(cursor, username: str, email: str, password: str):
 
     #account is created unless the username is taken.
     try:
-        user_id = create_user(cursor, username, email, password)
+        user_id = create_user(cursor, username, email, password, first_name, last_name)
         token = generate_verification_token()
         set_verification_code(cursor, user_id, token)
         return{
