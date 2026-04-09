@@ -8,6 +8,7 @@ from .users_model import (
     update_password,
     update_email,
     set_role,
+    promote_to_leader,
     delete_user,
     hash_password,
     verify_password,

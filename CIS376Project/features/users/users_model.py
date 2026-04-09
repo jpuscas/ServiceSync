@@ -151,6 +151,15 @@ def set_role(cursor, user_id: int, new_role: str):
     WHERE id = ?
     ''', (new_role, user_id))
 
+def promote_to_leader(cursor, admin_id: int, user_id: int):
+    # Check if admin_id has admin role
+    admin = get_user_by_id(cursor, admin_id)
+    if not admin or admin['role'].lower() != 'admin':
+        raise ValueError('Only admins can promote users to leader.')
+    
+    # Set the user's role to leader
+    set_role(cursor, user_id, 'leader')
+
 def delete_user(cursor, user_id: int):
     cursor.execute('''
     DELETE FROM users WHERE id = ?

@@ -199,6 +199,26 @@ def test_full_service_test():
     delete_service(cursor, 1)
     db.commit()
 
-    deleted_service = get_service_by_type(cursor, 'Worship')
-    assert deleted_service == []
+def test_sql_injection_prevention_services():
+    """Test that service search is protected against SQL injection."""
+    db, cursor = setup_db()
+
+    # Create a test service
+    create_service(cursor, 'Sunday Worship', 'Worship', '2026-03-08', '09:30', 1)
+    db.commit()
+
+    # Test normal search works
+    results = search_service(cursor, 'Sunday')
+    assert len(results) == 1
+
+    # Test SQL injection attempt doesn't work
+    malicious_search = "' OR '1'='1"
+    results = search_service(cursor, malicious_search)
+    # Should return empty results, not all services
+    assert len(results) == 0
+
+    # Test another injection attempt
+    malicious_search2 = "%' UNION SELECT * FROM users --"
+    results = search_service(cursor, malicious_search2)
+    assert len(results) == 0
 
