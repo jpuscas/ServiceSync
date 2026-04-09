@@ -167,6 +167,85 @@
             color: #4a5568;
         }
 
+        .song-card .edit-btn {
+            background: rgba(78,115,223,0.12);
+            color: #4e73df;
+            border: 1px solid rgba(78,115,223,0.25);
+            border-radius: 999px;
+            padding: 5px 13px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .song-card .edit-btn:hover { background: rgba(78,115,223,0.22); }
+
+        .song-card .delete-btn {
+            background: rgba(220,53,69,0.1);
+            color: #dc3545;
+            border: 1px solid rgba(220,53,69,0.2);
+            border-radius: 999px;
+            padding: 5px 13px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .song-card .delete-btn:hover { background: rgba(220,53,69,0.2); }
+
+        .song-card .edit-form { display: none; flex-direction: column; gap: 10px; }
+        .song-card .edit-form.open { display: flex; }
+
+        .song-card .edit-form input[type="text"],
+        .song-card .edit-form input[type="number"],
+        .song-card .edit-form input[type="url"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .song-card .edit-form label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #4a5568;
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        .song-card .edit-form .save-btn {
+            padding: 9px 18px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 999px;
+            font: inherit;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .song-card .edit-form .cancel-btn {
+            padding: 9px 14px;
+            background: transparent;
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .edit-actions-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
         .empty {
             text-align: center;
             padding: 50px;
@@ -222,41 +301,84 @@
 
     <div class="song-list">
         {% for song in songs %}
-            <div class="song-card">
+            <div class="song-card" id="card-{{ song.song_id }}">
                 <div class="song-header">
-                    <div class="song-title">{{ song.title }}</div>
+                    <div class="song-title view-{{ song.song_id }}">{{ song.title }}</div>
+                    {% if can_manage %}
+                        <button class="edit-btn" data-song-id="{{ song.song_id }}" onclick="toggleEdit(this.dataset.songId)">Edit</button>
+                    {% endif %}
                 </div>
-                <div class="song-meta">
+
+                <!-- View mode -->
+                <div class="song-meta view-{{ song.song_id }}">
                     <div><strong>Artist:</strong> {{ song.artist }}</div>
                     <div><strong>Key:</strong> {{ song.default_key }}</div>
                     <div><strong>Tempo:</strong> {{ song.default_tempo or '—' }}</div>
                     <div><strong>YouTube:</strong>
                         {% if song.youtube_url %}
-                            <a href="{{ song.youtube_url }}" target="_blank">Link</a>
-                        {% else %}
-                            —
-                        {% endif %}
+                            <a href="{{ song.youtube_url }}" target="_blank" rel="noopener noreferrer">Link</a>
+                        {% else %}—{% endif %}
                     </div>
                     <div><strong>Chords PDF:</strong>
                         {% if song.chords_pdf %}
                             <a href="/song/{{ song.song_id }}/chords.pdf" target="_blank">Download</a>
-                        {% else %}
-                            —
-                        {% endif %}
+                        {% else %}—{% endif %}
                     </div>
                     <div><strong>Lyrics PDF:</strong>
                         {% if song.lyrics_pdf %}
                             <a href="/song/{{ song.song_id }}/lyrics.pdf" target="_blank">Download</a>
-                        {% else %}
-                            —
-                        {% endif %}
+                        {% else %}—{% endif %}
                     </div>
                 </div>
+
+                {% if can_manage %}
+                <!-- Edit mode -->
+                <form method="POST" action="/song/{{ song.song_id }}/edit" enctype="multipart/form-data"
+                      class="edit-form" id="edit-form-{{ song.song_id }}">
+                    <div><label>Title</label>
+                        <input type="text" name="title" value="{{ song.title }}" required></div>
+                    <div><label>Artist</label>
+                        <input type="text" name="artist" value="{{ song.artist }}" required></div>
+                    <div><label>Key</label>
+                        <input type="text" name="key" value="{{ song.default_key }}" required></div>
+                    <div><label>Tempo (BPM)</label>
+                        <input type="number" name="tempo" value="{{ song.default_tempo or '' }}" min="1"></div>
+                    <div><label>YouTube URL</label>
+                        <input type="url" name="youtube_url" value="{{ song.youtube_url or '' }}" placeholder="https://..."></div>
+                    <div><label>Chords PDF (leave blank to keep current)</label>
+                        <input type="file" name="chords_pdf" accept="application/pdf"></div>
+                    <div><label>Lyrics PDF (leave blank to keep current)</label>
+                        <input type="file" name="lyrics_pdf" accept="application/pdf"></div>
+                    <div class="edit-actions-row">
+                        <button type="submit" class="save-btn">Save</button>
+                        <button type="button" class="cancel-btn" data-song-id="{{ song.song_id }}" onclick="toggleEdit(this.dataset.songId)">Cancel</button>
+                    </div>
+                </form>
+
+                <form method="POST" action="/song/{{ song.song_id }}/delete"
+                      onsubmit="return confirm('Delete {{ song.title }}?');"
+                      id="delete-form-{{ song.song_id }}" style="display:none;">
+                    <button type="submit" class="delete-btn">Delete Song</button>
+                </form>
+                {% endif %}
             </div>
         {% else %}
             <div class="empty">No songs found. Use the search bar to filter or add a new song.</div>
         {% endfor %}
     </div>
 </div>
+
+<script>
+    function toggleEdit(songId) {
+        const viewEls = document.querySelectorAll('.view-' + songId);
+        const editForm = document.getElementById('edit-form-' + songId);
+        const deleteForm = document.getElementById('delete-form-' + songId);
+        const isOpening = !editForm.classList.contains('open');
+
+        viewEls.forEach(el => el.style.display = isOpening ? 'none' : '');
+        editForm.classList.toggle('open', isOpening);
+        if (deleteForm) deleteForm.style.display = isOpening ? '' : 'none';
+    }
+</script>
 </body>
 </html>

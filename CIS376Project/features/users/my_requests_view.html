@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Requests</title>
+    <style>
+        :root {
+            --ink: #1f2937;
+            --muted: #64748b;
+            --line: rgba(31, 41, 55, 0.12);
+            --paper: #f5efe4;
+            --card: rgba(255, 255, 255, 0.86);
+            --brand: #14532d;
+            --brand-soft: rgba(20, 83, 45, 0.1);
+            --accent: #b45309;
+            --danger: #991b1b;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(20, 83, 45, 0.14), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.16), transparent 30%),
+                linear-gradient(135deg, #f7f1e5 0%, #e8efe8 100%);
+        }
+
+        .page {
+            width: min(860px, calc(100% - 26px));
+            margin: 13px auto;
+            padding: 18px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .topbar h1 { margin: 0 0 4px; font-size: clamp(1.8rem, 4vw, 2.8rem); }
+        .topbar p { margin: 0; color: var(--muted); }
+
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-meta a {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: var(--brand);
+            color: white;
+            font-weight: 700;
+        }
+
+        .logout-btn {
+            border: none;
+            border-radius: 999px;
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+            padding: 10px 14px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .alert {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(185, 28, 28, 0.1);
+            border: 1px solid rgba(185, 28, 28, 0.18);
+            color: #7f1d1d;
+        }
+
+        .section-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 22px 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--line);
+        }
+
+        .requests-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .request-card {
+            background: var(--card);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            backdrop-filter: blur(10px);
+        }
+
+        .request-info {
+            flex: 1;
+        }
+
+        .request-info .role {
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+        }
+
+        .request-info .meta {
+            color: var(--muted);
+            font-size: 0.93rem;
+        }
+
+        .request-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .request-actions form { margin: 0; }
+
+        .btn-accept {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--brand), #166534);
+            color: white;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-decline {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(153, 27, 27, 0.12);
+            color: var(--danger);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-view {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(20, 83, 45, 0.1);
+            color: var(--brand);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.83rem;
+            font-weight: 700;
+            font-family: sans-serif;
+        }
+
+        .badge-pending  { background: rgba(180, 83, 9, 0.12);  color: var(--accent); }
+        .badge-accepted { background: rgba(20, 83, 45, 0.12);  color: var(--brand); }
+        .badge-declined { background: rgba(153, 27, 27, 0.12); color: var(--danger); }
+
+        .empty {
+            padding: 20px;
+            text-align: center;
+            border-radius: 18px;
+            border: 1px dashed rgba(31, 41, 55, 0.2);
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.58);
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1>My Requests</h1>
+                <p>Services you have been requested to join.</p>
+            </div>
+            <div class="topbar-meta">
+                <a href="/">Home</a>
+                <a href="/services">Services</a>
+                <form method="POST" action="/logout">
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            </div>
+        </div>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        {% set pending  = requests | selectattr('accepted', 'equalto', none)  | list %}
+        {% set declined = requests | selectattr('accepted', 'equalto', 0)     | list %}
+        {% set accepted = requests | selectattr('accepted', 'equalto', 1)     | list %}
+
+        <!-- Pending Requests -->
+        <div class="section-title">Pending Requests ({{ pending | length }})</div>
+        <div class="requests-list">
+            {% for req in pending %}
+                <div class="request-card">
+                    <div class="request-info">
+                        <div class="role">{{ req.instrument }}</div>
+                        <div class="meta">{{ req.service_date }} &bull; {{ req.service_time }}</div>
+                    </div>
+                    <div class="request-actions">
+                        <span class="status-badge badge-pending">Pending</span>
+                        <form method="POST" action="/requests/{{ req.musicians_id }}/accept">
+                            <button type="submit" class="btn-accept">Accept</button>
+                        </form>
+                        <form method="POST" action="/requests/{{ req.musicians_id }}/decline">
+                            <button type="submit" class="btn-decline">Decline</button>
+                        </form>
+                        <a class="btn-view" href="/services/{{ req.service_id }}">View Service</a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty">No pending requests.</div>
+            {% endfor %}
+        </div>
+
+        <!-- Declined -->
+        {% if declined %}
+            <div class="section-title">Declined ({{ declined | length }})</div>
+            <div class="requests-list">
+                {% for req in declined %}
+                    <div class="request-card">
+                        <div class="request-info">
+                            <div class="role">{{ req.instrument }}</div>
+                            <div class="meta">{{ req.service_date }} &bull; {{ req.service_time }}</div>
+                        </div>
+                        <div class="request-actions">
+                            <span class="status-badge badge-declined">Declined</span>
+                            <a class="btn-view" href="/services/{{ req.service_id }}">View Service</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Accepted -->
+        {% if accepted %}
+            <div class="section-title">Accepted ({{ accepted | length }})</div>
+            <div class="requests-list">
+                {% for req in accepted %}
+                    <div class="request-card">
+                        <div class="request-info">
+                            <div class="role">{{ req.instrument }}</div>
+                            <div class="meta">{{ req.service_date }} &bull; {{ req.service_time }}</div>
+                        </div>
+                        <div class="request-actions">
+                            <span class="status-badge badge-accepted">Accepted</span>
+                            <a class="btn-view" href="/services/{{ req.service_id }}">View Service</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if not requests %}
+            <div class="empty" style="margin-top: 22px;">You have not been requested for any services yet.</div>
+        {% endif %}
+    </div>
+</body>
+</html>
