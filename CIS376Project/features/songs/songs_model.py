@@ -53,7 +53,7 @@ def search_song(cursor, search_term, org_id: int = 1):
 
     return cursor.fetchall()
 
-def update_song_fields(cursor, song_id: int, **fields):
+def update_song_fields(cursor, song_id: int, org_id: int = 1, **fields):
     """Update arbitrary song fields."""
     if not fields:
         return
@@ -64,11 +64,12 @@ def update_song_fields(cursor, song_id: int, **fields):
         keys.append(f"{k} = ?")
         params.append(v)
 
-    sql = f"UPDATE songs SET {', '.join(keys)} WHERE song_id = ?"
+    sql = f"UPDATE songs SET {', '.join(keys)} WHERE song_id = ? AND org_id = ?"
     params.append(song_id)
+    params.append(org_id)
     cursor.execute(sql, tuple(params))
 
-def update_song(cursor, song_id, title=None, artist=None, default_key=None, default_tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None):
+def update_song(cursor, song_id, title=None, artist=None, default_key=None, default_tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None, org_id: int = 1):
     """Update song fields (legacy function)."""
     fields = {}
     if title is not None: fields['title'] = title
@@ -78,9 +79,9 @@ def update_song(cursor, song_id, title=None, artist=None, default_key=None, defa
     if youtube_url is not None: fields['youtube_url'] = youtube_url
     if chords_pdf is not None: fields['chords_pdf'] = chords_pdf
     if lyrics_pdf is not None: fields['lyrics_pdf'] = lyrics_pdf
-    update_song_fields(cursor, song_id, **fields)
+    update_song_fields(cursor, song_id, org_id, **fields)
 
-def delete_song(cursor, song_id: int):
+def delete_song(cursor, song_id: int, org_id: int = 1):
     cursor.execute('''
-    DELETE FROM songs WHERE song_id = ?
-    ''', (song_id,))
+    DELETE FROM songs WHERE song_id = ? AND org_id = ?
+    ''', (song_id, org_id))

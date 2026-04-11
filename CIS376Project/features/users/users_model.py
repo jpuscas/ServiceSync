@@ -5,10 +5,10 @@ def create_users_table(cursor):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
         first_name TEXT,
         last_name TEXT,
-        email TEXT UNIQUE NOT NULL,
+        email TEXT NOT NULL,
         phone TEXT,
         
         password TEXT NOT NULL,
@@ -24,7 +24,7 @@ def create_users_table(cursor):
         UNIQUE(username, org_id),
         UNIQUE(email, org_id)
         );
-    ''')
+    ''' )
 
     cursor.execute('''
     CREATE TRIGGER IF NOT EXISTS update_user_timestamp 
@@ -84,10 +84,10 @@ def authenticate_user(cursor, username: str, password: str, org_id: int = 1):
         'org_id': user[5]
     }
 
-def get_username_by_email(cursor, email: str):
+def get_username_by_email(cursor, email: str, org_id: int = 1):
     cursor.execute('''
-    SELECT username FROM users WHERE email = ?
-    ''', (email,))
+    SELECT username FROM users WHERE email = ? AND org_id = ?
+    ''', (email, org_id))
     row = cursor.fetchone()
     return row[0] if row else None
 
@@ -144,21 +144,31 @@ def update_phone(cursor, user_id: int, phone: str):
     WHERE id = ?
     ''', (phone, user_id))
 
-def set_role(cursor, user_id: int, new_role: str):
-    cursor.execute('''
-    UPDATE users
-    SET role = ? 
-    WHERE id = ?
-    ''', (new_role, user_id))
+def set_role(cursor, user_id: int, new_role: str, org_id: int = None):
+    if org_id is None:
+        cursor.execute('''
+        UPDATE users
+        SET role = ? 
+        WHERE id = ?
+        ''', (new_role, user_id))
+    else:
+        cursor.execute('''
+        UPDATE users
+        SET role = ? 
+        WHERE id = ? AND org_id = ?
+        ''', (new_role, user_id, org_id))
 
-def promote_to_leader(cursor, admin_id: int, user_id: int):
-    # Check if admin_id has admin role
+def promote_to_leader(cursor, admin_id: int, user_id: int, org_id: int = 1):
+    # Check if admin_id has admin role and belongs to the org
     admin = get_user_by_id(cursor, admin_id)
-    if not admin or admin['role'].lower() != 'admin':
+    if not admin or admin['role'].lower() != 'admin' or admin['org_id'] != org_id:
         raise ValueError('Only admins can promote users to leader.')
-    
-    # Set the user's role to leader
-    set_role(cursor, user_id, 'leader')
+
+    target_user = get_user_by_id(cursor, user_id)
+    if not target_user or target_user['org_id'] != org_id:
+        raise ValueError('User not found in this organization.')
+
+    set_role(cursor, user_id, 'leader', org_id)
 
 def delete_user(cursor, user_id: int):
     cursor.execute('''

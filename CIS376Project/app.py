@@ -49,12 +49,19 @@ def get_current_user():
     # Keep session fields in sync in case role/username changed in the database.
     session['username'] = user_row['username']
     session['role'] = user_row['role']
+    session['org_id'] = user_row['org_id']
 
     return {
         'id': user_id,
         'username': user_row['username'],
         'role': user_row['role'],
+        'org_id': user_row['org_id'],
     }
+
+def get_current_org_id():
+    current_user = get_current_user()
+    return current_user['org_id'] if current_user else 1
+
 
 def is_leader(user=None):
     active_user = user or get_current_user()
@@ -106,13 +113,13 @@ def serialize_user(user_row):
         'role': user_row['role'],
     }
 
-def build_service_detail(cursor, service_row):
+def build_service_detail(cursor, service_row, org_id: int = 1):
     if not service_row:
         return None
 
     detail = dict(service_row)
-    detail['assignments'] = get_musicians_for_service(cursor, detail['service_id'])
-    detail['songs'] = get_songs_for_service(cursor, detail['service_id'])
+    detail['assignments'] = get_musicians_for_service(cursor, detail['service_id'], org_id)
+    detail['songs'] = get_songs_for_service(cursor, detail['service_id'], org_id)
     detail['title'] = detail['service_date']
     return detail
 
@@ -173,27 +180,27 @@ def parse_json_list(raw_value):
     except (TypeError, json.JSONDecodeError):
         return []
 
-def save_service_relations(cursor, service_id, assignments, song_ids):
-    smart_save_musicians(cursor, service_id, assignments)
+def save_service_relations(cursor, service_id, assignments, song_ids, org_id: int = 1):
+    smart_save_musicians(cursor, service_id, assignments, org_id)
 
-    clear_songs_for_service(cursor, service_id)
+    clear_songs_for_service(cursor, service_id, org_id)
     for index, song_id in enumerate(song_ids, start=1):
-        add_song_to_service(cursor, service_id, song_id, song_order=index)
+        add_song_to_service(cursor, service_id, song_id, song_order=index, org_id=org_id)
 
-def load_service_page_context(selected_service_id=None, filter_user_id=None):
+def load_service_page_context(selected_service_id=None, filter_user_id=None, org_id: int = 1):
     db, cursor = get_connection()
-    users = [serialize_user(user) for user in list_users(cursor)]
-    songs = [serialize_song(song) for song in list_songs(cursor)]
+    users = [serialize_user(user) for user in list_users(cursor, org_id)]
+    songs = [serialize_song(song) for song in list_songs(cursor, org_id)]
     if filter_user_id is not None:
-        services = [dict(row) for row in list_services_for_user(cursor, filter_user_id)]
+        services = [dict(row) for row in list_services_for_user(cursor, filter_user_id, org_id)]
     else:
-        services = [dict(row) for row in list_services(cursor)]
+        services = [dict(row) for row in list_services(cursor, org_id)]
 
     selected_service = None
     if selected_service_id is not None:
-        selected_service = build_service_detail(cursor, get_service_by_id(cursor, selected_service_id))
+        selected_service = build_service_detail(cursor, get_service_by_id(cursor, selected_service_id, org_id), org_id)
     elif services:
-        selected_service = build_service_detail(cursor, get_service_by_id(cursor, services[0]['service_id']))
+        selected_service = build_service_detail(cursor, get_service_by_id(cursor, services[0]['service_id'], org_id), org_id)
 
     db.close()
     return users, songs, services, selected_service
@@ -216,15 +223,21 @@ def login_route():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        org_id_raw = request.form.get('org_id', '1')
+        try:
+            org_id = int(org_id_raw)
+        except (TypeError, ValueError):
+            org_id = 1
         
         db, cursor = get_connection()
-        result = login_user(cursor, username, password)
+        result = login_user(cursor, username, password, org_id)
         db.close()
         
         if result['success']:
             session['user_id'] = result['user']['id']
             session['username'] = result['user']['username']
             session['role'] = result['user']['role']
+            session['org_id'] = result['user']['org_id']
             session['message'] = f"Logged in as {result['user']['username']}."
             return redirect('/')
         else:
@@ -247,9 +260,14 @@ def register_route():
         password = request.form.get('password')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
+        org_id_raw = request.form.get('org_id', '1')
+        try:
+            org_id = int(org_id_raw)
+        except (TypeError, ValueError):
+            org_id = 1
         
         db, cursor = get_connection()
-        result = register_user(cursor, username, email, password, first_name, last_name)
+        result = register_user(cursor, username, email, password, org_id, first_name, last_name)
         if result['success']:
             db.commit()
             session['verification_token'] = result['token']
@@ -282,12 +300,13 @@ def verify_route():
 def songs_route():
     query = request.args.get('q', '').strip()
     current_user = get_current_user()
+    org_id = current_user['org_id']
 
     db, cursor = get_connection()
     if query:
-        rows = search_song(cursor, query)
+        rows = search_song(cursor, query, org_id)
     else:
-        rows = list_songs(cursor)
+        rows = list_songs(cursor, org_id)
     db.close()
 
     songs = []
@@ -316,9 +335,11 @@ def songs_route():
 @require_login
 def songs_api_route():
     query = request.args.get('q', '').strip()
+    current_user = get_current_user()
+    org_id = current_user['org_id']
 
     db, cursor = get_connection()
-    rows = search_song(cursor, query) if query else list_songs(cursor)
+    rows = search_song(cursor, query, org_id) if query else list_songs(cursor, org_id)
     db.close()
 
     return jsonify({'songs': [serialize_song(row) for row in rows]})
@@ -326,8 +347,9 @@ def songs_api_route():
 @app.route('/services/new', methods=['GET', 'POST'])
 @require_leader('/services')
 def create_service_route():
-    users, songs, _, _ = load_service_page_context()
     current_user = get_current_user()
+    org_id = current_user['org_id']
+    users, songs, _, _ = load_service_page_context(org_id=org_id)
 
     if request.method == 'GET':
         return render_template(
@@ -373,8 +395,9 @@ def create_service_route():
         payload['service_date'],
         payload['service_time'],
         payload['leader_id'],
+        org_id,
     )
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'])
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id)
     db.commit()
     db.close()
 
@@ -384,8 +407,9 @@ def create_service_route():
 @require_login
 def services_route():
     current_user = get_current_user()
+    org_id = current_user['org_id']
     member_filter = None if is_leader(current_user) else current_user['id']
-    users, songs, services, selected_service = load_service_page_context(filter_user_id=member_filter)
+    users, songs, services, selected_service = load_service_page_context(filter_user_id=member_filter, org_id=org_id)
     return render_template(
         'services_view.html',
         roles=SERVICE_ROLES,
@@ -402,8 +426,9 @@ def services_route():
 @require_login
 def service_detail_route(service_id):
     current_user = get_current_user()
+    org_id = current_user['org_id']
     member_filter = None if is_leader(current_user) else current_user['id']
-    users, songs, services, selected_service = load_service_page_context(service_id, filter_user_id=member_filter)
+    users, songs, services, selected_service = load_service_page_context(service_id, filter_user_id=member_filter, org_id=org_id)
     if selected_service is None:
         return redirect('/services')
 
@@ -422,11 +447,12 @@ def service_detail_route(service_id):
 @app.route('/services/<int:service_id>/edit', methods=['POST'])
 @require_leader('/services')
 def update_service_route(service_id):
+    current_user = get_current_user()
+    org_id = current_user['org_id']
     try:
         payload = parse_service_payload(request.form)
     except (ValueError, TypeError, json.JSONDecodeError) as error:
-        current_user = get_current_user()
-        users, songs, services, selected_service = load_service_page_context(service_id)
+        users, songs, services, selected_service = load_service_page_context(service_id, org_id=org_id)
         if selected_service is None:
             return redirect('/services')
 
@@ -450,7 +476,7 @@ def update_service_route(service_id):
         ), 400
 
     db, cursor = get_connection()
-    if get_service_by_id(cursor, service_id) is None:
+    if get_service_by_id(cursor, service_id, org_id) is None:
         db.close()
         return redirect('/services')
 
@@ -462,8 +488,9 @@ def update_service_route(service_id):
         payload['service_date'],
         payload['service_time'],
         payload['leader_id'],
+        org_id,
     )
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'])
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id)
     db.commit()
     db.close()
 
@@ -472,9 +499,11 @@ def update_service_route(service_id):
 @app.route('/services/<int:service_id>/delete', methods=['POST'])
 @require_leader('/services')
 def delete_service_route(service_id):
+    current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    if get_service_by_id(cursor, service_id) is not None:
-        delete_service(cursor, service_id)
+    if get_service_by_id(cursor, service_id, org_id) is not None:
+        delete_service(cursor, service_id, org_id)
         db.commit()
     db.close()
     return redirect('/services')
@@ -483,8 +512,9 @@ def delete_service_route(service_id):
 @require_login
 def my_requests_route():
     current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    requests = get_requests_for_user(cursor, current_user['id'])
+    requests = get_requests_for_user(cursor, current_user['id'], org_id)
     db.close()
     return render_template(
         'my_requests_view.html',
@@ -498,13 +528,14 @@ def my_requests_route():
 @require_login
 def accept_request_route(musicians_id):
     current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    row = get_musician_row(cursor, musicians_id)
+    row = get_musician_row(cursor, musicians_id, org_id)
     if row is None or row['user_id'] != current_user['id']:
         db.close()
         session['message'] = 'Request not found.'
         return redirect('/my-requests')
-    update_musician_response(cursor, musicians_id, 1)
+    update_musician_response(cursor, musicians_id, 1, org_id)
     db.commit()
     db.close()
     session['message'] = 'You have accepted the request.'
@@ -514,13 +545,14 @@ def accept_request_route(musicians_id):
 @require_login
 def decline_request_route(musicians_id):
     current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    row = get_musician_row(cursor, musicians_id)
+    row = get_musician_row(cursor, musicians_id, org_id)
     if row is None or row['user_id'] != current_user['id']:
         db.close()
         session['message'] = 'Request not found.'
         return redirect('/my-requests')
-    update_musician_response(cursor, musicians_id, 0)
+    update_musician_response(cursor, musicians_id, 0, org_id)
     db.commit()
     db.close()
     session['message'] = 'You have declined the request.'
@@ -529,13 +561,15 @@ def decline_request_route(musicians_id):
 @app.route('/services/<int:service_id>/rerequest/<int:musicians_id>', methods=['POST'])
 @require_leader('/services')
 def rerequest_musician_route(service_id, musicians_id):
+    current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    row = get_musician_row(cursor, musicians_id)
+    row = get_musician_row(cursor, musicians_id, org_id)
     if row is None or row['service_id'] != service_id:
         db.close()
         session['message'] = 'Assignment not found.'
         return redirect(f'/services/{service_id}')
-    reset_musician_request(cursor, musicians_id)
+    reset_musician_request(cursor, musicians_id, org_id)
     db.commit()
     db.close()
     session['message'] = 'Re-request sent.'
@@ -569,7 +603,7 @@ def add_song_route():
             except ValueError:
                 tempo = None
         
-        result = add_new_song(title, artist, key, tempo, youtube_url, chords_data, lyrics_data)
+        result = add_new_song(title, artist, key, current_user['org_id'], tempo, youtube_url, chords_data, lyrics_data)
         
         if result['success']:
             return redirect('/songs')

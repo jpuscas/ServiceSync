@@ -105,6 +105,46 @@ def test_update_musician():
 
     assert musician[0][2] == 'Piano'
 
+
+def test_update_musician_ignores_wrong_org():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'user1', 'user1@gmail.com', 'pass', org_id=1)
+    create_user(cursor, 'user2', 'user2@gmail.com', 'pass', org_id=2)
+    create_service(cursor, 'Sunday Worship', 'Worship', '3/8/2026', '9:00 AM', 1, org_id=1)
+    create_service(cursor, 'City Night', 'Youth', '3/8/2026', '7:00 PM', 2, org_id=2)
+    db.commit()
+
+    assign_musician(cursor, 1, 1, 'Guitar', org_id=1)
+    db.commit()
+
+    musician = update_musician(cursor, 1, 'Piano', org_id=2)
+    db.commit()
+
+    assert musician == []
+    cursor.execute('SELECT instrument FROM service_musicians WHERE musicians_id = 1')
+    row = cursor.fetchone()
+    assert row['instrument'] == 'Guitar'
+
+
+def test_delete_musician_ignores_wrong_org():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'user1', 'user1@gmail.com', 'pass')
+    create_service(cursor, 'Sunday Worship', 'Worship',
+                   '3/8/2026', '9:00 AM', 1)
+    db.commit()
+
+    assign_musician(cursor, 1, 1, 'Guitar')
+    db.commit()
+
+    delete_musician(cursor, 1, org_id=2)
+    db.commit()
+
+    row = get_musicians_assignment(cursor, 1)
+    assert row[0][2] == 'Guitar'
+
+
 def test_delete_musician():
     db, cursor = setup_db()
 

@@ -61,11 +61,17 @@ def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_temp
     ''', (custom_key, custom_tempo, song_order, service_song_id, service_id, org_id))
     return get_songs_for_service(cursor, service_id, org_id)
 
-def remove_song_from_service(cursor, service_song_id: int):
-    cursor.execute('''
-    DELETE FROM service_songs
-    WHERE service_song_id = ?
-    ''', (service_song_id,))
+def remove_song_from_service(cursor, service_song_id: int, org_id: int = None):
+    if org_id is None:
+        cursor.execute('''
+        DELETE FROM service_songs
+        WHERE service_song_id = ?
+        ''', (service_song_id,))
+    else:
+        cursor.execute('''
+        DELETE FROM service_songs
+        WHERE service_song_id = ? AND org_id = ?
+        ''', (service_song_id, org_id))
 
 def clear_songs_for_service(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
