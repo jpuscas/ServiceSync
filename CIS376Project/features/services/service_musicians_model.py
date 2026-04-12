@@ -58,7 +58,7 @@ def get_instrument(cursor, service_id: int, instrument: str, org_id: int = 1):
     ''', (service_id, instrument, org_id))
     return cursor.fetchall()
 
-def update_musician_fields(cursor, musicians_id: int, **fields):
+def update_musician_fields(cursor, musicians_id: int, org_id: int = None, **fields):
     """Update arbitrary musician fields."""
     if not fields:
         return
@@ -71,19 +71,35 @@ def update_musician_fields(cursor, musicians_id: int, **fields):
 
     sql = f"UPDATE service_musicians SET {', '.join(keys)} WHERE musicians_id = ?"
     params.append(musicians_id)
+    if org_id is not None:
+        sql += ' AND org_id = ?'
+        params.append(org_id)
+
     cursor.execute(sql, tuple(params))
 
-def update_musician(cursor, musicians_id: int, instrument: str):
+def update_musician(cursor, musicians_id: int, instrument: str, org_id: int = None):
     """Update musician instrument (legacy function)."""
-    update_musician_fields(cursor, musicians_id, instrument=instrument)
-    return get_musicians_assignment(cursor, musicians_id)
+    update_musician_fields(cursor, musicians_id, org_id, instrument=instrument)
+    updated_row = get_musician_row(cursor, musicians_id, org_id)
+    if not updated_row:
+        return []
 
-def delete_musician(cursor, musicians_id: int):
+    if org_id is None:
+        return get_musicians_assignment(cursor, updated_row['user_id'])
+    return get_musicians_assignment(cursor, updated_row['user_id'], org_id)
+
+def delete_musician(cursor, musicians_id: int, org_id: int = None):
     """Delete a musician assignment by ID."""
-    cursor.execute('''
-    DELETE FROM service_musicians
-    WHERE musicians_id = ?
-    ''', (musicians_id,))
+    if org_id is None:
+        cursor.execute('''
+        DELETE FROM service_musicians
+        WHERE musicians_id = ?
+        ''', (musicians_id,))
+    else:
+        cursor.execute('''
+        DELETE FROM service_musicians
+        WHERE musicians_id = ? AND org_id = ?
+        ''', (musicians_id, org_id))
 
 def clear_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     cursor.execute('''
@@ -91,11 +107,11 @@ def clear_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     WHERE service_id = ? AND org_id = ?
     ''', (service_id, org_id))
 
-def smart_save_musicians(cursor, service_id: int, assignments: list):
+def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: int = 1):
     """Sync musicians for a service while preserving accepted/denied responses."""
     cursor.execute(
-        'SELECT musicians_id, user_id, instrument, accepted FROM service_musicians WHERE service_id = ?',
-        (service_id,)
+        'SELECT musicians_id, user_id, instrument, accepted FROM service_musicians WHERE service_id = ? AND org_id = ?',
+        (service_id, org_id)
     )
     existing = {(row['user_id'], row['instrument']): dict(row) for row in cursor.fetchall()}
 
@@ -105,45 +121,61 @@ def smart_save_musicians(cursor, service_id: int, assignments: list):
     for (uid, instr), row in list(existing.items()):
         if row['accepted'] != 0:  # NULL or 1 are manageable
             if (uid, instr) not in new_set:
-                cursor.execute('DELETE FROM service_musicians WHERE musicians_id = ?', (row['musicians_id'],))
+                cursor.execute('DELETE FROM service_musicians WHERE musicians_id = ? AND org_id = ?', (row['musicians_id'], org_id))
 
     # Insert new rows that don't already exist
     for (uid, instr), assignment in new_set.items():
         if (uid, instr) not in existing:
             cursor.execute(
-                'INSERT INTO service_musicians (service_id, user_id, instrument) VALUES (?, ?, ?)',
-                (service_id, uid, instr)
+                'INSERT INTO service_musicians (service_id, user_id, instrument, org_id) VALUES (?, ?, ?, ?)',
+                (service_id, uid, instr, org_id)
             )
 
-def get_requests_for_user(cursor, user_id: int):
+def get_requests_for_user(cursor, user_id: int, org_id: int = 1):
     """Return all service requests for a user, pending first then denied then accepted."""
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.instrument, sm.accepted,
            s.service_date, s.service_time, s.service_name
     FROM service_musicians sm
     JOIN services s ON sm.service_id = s.service_id
-    WHERE sm.user_id = ?
+    WHERE sm.user_id = ? AND sm.org_id = ?
     ORDER BY CASE WHEN sm.accepted IS NULL THEN 0 WHEN sm.accepted = 0 THEN 1 ELSE 2 END,
              s.service_date ASC
-    ''', (user_id,))
+    ''', (user_id, org_id))
     return [dict(row) for row in cursor.fetchall()]
 
-def update_musician_response(cursor, musicians_id: int, accepted: int):
-    cursor.execute('''
-    UPDATE service_musicians SET accepted = ? WHERE musicians_id = ?
-    ''', (accepted, musicians_id))
+def update_musician_response(cursor, musicians_id: int, accepted: int, org_id: int = None):
+    if org_id is None:
+        cursor.execute('''
+        UPDATE service_musicians SET accepted = ? WHERE musicians_id = ?
+        ''', (accepted, musicians_id))
+    else:
+        cursor.execute('''
+        UPDATE service_musicians SET accepted = ? WHERE musicians_id = ? AND org_id = ?
+        ''', (accepted, musicians_id, org_id))
 
-def reset_musician_request(cursor, musicians_id: int):
-    cursor.execute('''
-    UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ?
-    ''', (musicians_id,))
+def reset_musician_request(cursor, musicians_id: int, org_id: int = None):
+    if org_id is None:
+        cursor.execute('''
+        UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ?
+        ''', (musicians_id,))
+    else:
+        cursor.execute('''
+        UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ? AND org_id = ?
+        ''', (musicians_id, org_id))
 
-def get_musician_row(cursor, musicians_id: int):
-    cursor.execute('''
+def get_musician_row(cursor, musicians_id: int, org_id: int = None):
+    query = '''
     SELECT sm.*, u.username, u.first_name, u.last_name
     FROM service_musicians sm
     JOIN users u ON sm.user_id = u.id
     WHERE sm.musicians_id = ?
-    ''', (musicians_id,))
+    '''
+    params = [musicians_id]
+    if org_id is not None:
+        query += ' AND sm.org_id = ?'
+        params.append(org_id)
+
+    cursor.execute(query, tuple(params))
     row = cursor.fetchone()
     return dict(row) if row else None

@@ -149,6 +149,24 @@ def test_update_service():
 
     assert rows['service_time'] == '10:00'
 
+
+def test_update_service_ignores_wrong_org():
+    db, cursor = setup_db()
+
+    create_service(cursor, 'Sunday Worship', 'Worship',
+                   '2026-03-08', '09:30', 1, org_id=1)
+    db.commit()
+
+    results = update_service(cursor, 1, 'Sunday Worship', 'Worship',
+                   '2026-03-08', '10:00', 1, org_id=2)
+    db.commit()
+
+    assert results == []
+
+    cursor.execute('SELECT service_time FROM services WHERE service_id = ?', (1,))
+    row = cursor.fetchone()
+    assert row['service_time'] == '09:30'
+
 def test_delete_service():
     db, cursor = setup_db()
 

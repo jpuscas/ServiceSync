@@ -71,7 +71,7 @@ def list_services_for_user(cursor, user_id: int, org_id: int = 1):
     ''', (user_id, user_id, org_id))
     return cursor.fetchall()
 
-def update_service_fields(cursor, service_id: int, **fields):
+def update_service_fields(cursor, service_id: int, org_id: int = None, **fields):
     """Update arbitrary service fields, normalizing dates/times."""
     if not fields:
         return
@@ -90,6 +90,10 @@ def update_service_fields(cursor, service_id: int, **fields):
 
     sql = f"UPDATE services SET {', '.join(keys)} WHERE service_id = ?"
     params.append(service_id)
+    if org_id is not None:
+        sql += ' AND org_id = ?'
+        params.append(org_id)
+
     cursor.execute(sql, tuple(params))
 
 def update_service(cursor, service_id, service_name=None, service_type=None, service_date=None, service_time=None, leader_id=None, org_id: int = 1):
@@ -100,7 +104,7 @@ def update_service(cursor, service_id, service_name=None, service_type=None, ser
     if service_date is not None: fields['service_date'] = service_date
     if service_time is not None: fields['service_time'] = service_time
     if leader_id is not None: fields['leader_id'] = leader_id
-    update_service_fields(cursor, service_id, **fields)
+    update_service_fields(cursor, service_id, org_id, **fields)
 
     row = get_service_by_id(cursor, service_id, org_id)
     return [row] if row else []

@@ -1,11 +1,11 @@
 from database.connection import get_connection
 from features.songs.songs_model import search_song
 
-def perform_song_search(query):
+def perform_song_search(query, org_id):
     db, cursor = get_connection()
 
     try:
-        results = search_song(cursor, query)
+        results = search_song(cursor, query, org_id)
 
         song_list = []
         for row in results:

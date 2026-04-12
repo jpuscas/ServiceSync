@@ -90,6 +90,21 @@ def test_remove_song_from_service():
 
     assert rows == []
 
+
+def test_remove_song_from_service_ignores_wrong_org():
+    db, cursor = create_setlist()
+
+    add_song_to_service(cursor, 1, 1, 'G', 80, 1)
+    db.commit()
+
+    remove_song_from_service(cursor, 1, org_id=2)
+    db.commit()
+
+    rows = get_service_setlist(cursor, 1)
+    assert len(rows) == 1
+    assert rows[0]['song_id'] == 1
+
+
 def test_reorder_songs():
     db, cursor = create_setlist()
 
