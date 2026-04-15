@@ -84,7 +84,7 @@ def update_musician(cursor, musicians_id: int, instrument: str, org_id: str = 'd
     if not updated_row:
         return []
 
-    return get_musicians_assignment(cursor, updated_row['user_id'], org_id)
+    return get_musicians_assignment(cursor, int(updated_row['user_id']), org_id)
 
 def delete_musician(cursor, musicians_id: int, org_id: str = 'default'):
     """Delete a musician assignment by ID."""
