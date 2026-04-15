@@ -1,20 +1,24 @@
 from database.connection import get_connection
-from features.songs.songs_model import search_song
+from features.songs.songs_model import list_songs, search_song
 
-def perform_song_search(query, org_id):
-    db, cursor = get_connection()
+def perform_song_search(query, org_id, cursor=None):
+    managed_connection = cursor is None
+    db = None
+    if managed_connection:
+        db, cursor = get_connection()
 
     try:
-        results = search_song(cursor, query, org_id)
+        query = (query or '').strip()
+        results = search_song(cursor, query, org_id) if query else list_songs(cursor, org_id)
 
         song_list = []
         for row in results:
             song_list.append({
-                "id": row['song_id'],
+                "song_id": row['song_id'],
                 "title": row['title'],
                 "artist": row['artist'],
-                "key": row['default_key'],
-                "tempo": row['default_tempo'],
+                "default_key": row['default_key'],
+                "default_tempo": row['default_tempo'],
                 "youtube_url": row['youtube_url'],
                 "chords_pdf": row['chords_pdf'],
                 "lyrics_pdf": row['lyrics_pdf']
@@ -34,4 +38,5 @@ def perform_song_search(query, org_id):
             "message": f"Search error: {e}"
         }
     finally:
-        db.close()
+        if managed_connection and db is not None:
+            db.close()

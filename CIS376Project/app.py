@@ -1,28 +1,40 @@
 import json
+import os
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect
+from jinja2 import ChoiceLoader, FileSystemLoader
 from database.connection import get_connection
 from database.schema import create_database
 from features.invitations.invitations_model import accept_invitation, decline_invitation, get_invitation_by_musicians_id, get_invitations_by_user
 from features.invitations.send_invitation_logic import send_service_invitation
-from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service, smart_save_musicians, update_musician_response, reset_musician_request, get_musician_row
-from features.services.service_songs_model import add_song_to_service, clear_songs_for_service, get_songs_for_service
-from features.services.services_model import create_service, delete_service, get_service_by_id, list_services, list_services_for_user, update_service
+from features.services.add_song_to_service_logic import replace_service_setlist
+from features.services.assign_member_logic import save_members_for_service
+from features.services.create_service_logic import create_new_service
+from features.services.service_details_logic import get_full_service_details
+from features.services.service_musicians_model import get_musicians_for_service, update_musician_response, reset_musician_request, get_musician_row
+from features.services.service_songs_model import get_songs_for_service
+from features.services.services_model import delete_service, get_service_by_id, list_services, list_services_for_user, update_service
 from features.songs.add_song_logic import add_new_song
+from features.songs.search_song_logic import perform_song_search
 
 # Ensure DB schema is applied on app start without deleting existing data
 _db, _cursor = get_connection()
 create_database(_cursor)
 _db.commit()
 _db.close()
-from features.songs.songs_model import list_songs, search_song, get_song_by_id, update_song, delete_song
+from features.songs.songs_model import list_songs, get_song_by_id, update_song, delete_song
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user
+from features.users.role_logic import has_role
 from features.users.user_verification import verify_user
 from features.users.users_model import get_user_by_id, list_users, update_password, update_username, update_phone, update_name, update_email
 
 app = Flask(__name__, template_folder='features/users')
+app.jinja_loader = ChoiceLoader([
+    app.jinja_loader,
+    FileSystemLoader(os.path.join(app.root_path, 'features', 'songs')),
+])
 app.secret_key = 'dev_secret_key'
 
 SERVICE_ROLES = [
@@ -67,7 +79,7 @@ def get_current_org_id():
 
 def is_leader(user=None):
     active_user = user or get_current_user()
-    return bool(active_user and str(active_user.get('role', '')).lower() == 'leader')
+    return has_role(active_user, 'leader')
 
 def require_login(view_function):
     @wraps(view_function)
@@ -119,9 +131,13 @@ def build_service_detail(cursor, service_row, org_id: int = 1):
     if not service_row:
         return None
 
-    detail = dict(service_row)
-    detail['assignments'] = get_musicians_for_service(cursor, detail['service_id'], org_id)
-    detail['songs'] = get_songs_for_service(cursor, detail['service_id'], org_id)
+    result = get_full_service_details(service_row['service_id'], org_id, cursor=cursor)
+    if not result['success']:
+        return None
+
+    detail = result['service']
+    detail['assignments'] = result['musicians']
+    detail['songs'] = result['songs']
     detail['title'] = detail['service_date']
     return detail
 
@@ -202,7 +218,14 @@ def serialize_invitation_request(invitation_row):
     }
 
 def save_service_relations(cursor, service_id, assignments, song_ids, org_id: int = 1, sender_id=None):
-    smart_save_musicians(cursor, service_id, assignments, org_id)
+    if sender_id is not None:
+        member_result = save_members_for_service(sender_id, service_id, assignments, org_id, cursor=cursor)
+        if not member_result['success']:
+            raise ValueError(member_result['message'])
+    else:
+        member_result = save_members_for_service(0, service_id, assignments, org_id, cursor=cursor)
+        if not member_result['success'] and member_result['message'] != 'Permission denied.':
+            raise ValueError(member_result['message'])
 
     if sender_id is not None:
         for assignment_row in get_musicians_for_service(cursor, service_id, org_id):
@@ -216,9 +239,9 @@ def save_service_relations(cursor, service_id, assignments, song_ids, org_id: in
                 cursor=cursor,
             )
 
-    clear_songs_for_service(cursor, service_id, org_id)
-    for index, song_id in enumerate(song_ids, start=1):
-        add_song_to_service(cursor, service_id, song_id, song_order=index, org_id=org_id)
+    songs_result = replace_service_setlist(service_id, song_ids, org_id, cursor=cursor)
+    if not songs_result['success']:
+        raise ValueError(songs_result['message'])
 
 def load_service_page_context(selected_service_id=None, filter_user_id=None, org_id: int = 1):
     db, cursor = get_connection()
@@ -336,14 +359,11 @@ def songs_route():
     org_id = current_user['org_id']
 
     db, cursor = get_connection()
-    if query:
-        rows = search_song(cursor, query, org_id)
-    else:
-        rows = list_songs(cursor, org_id)
+    result = perform_song_search(query, org_id, cursor=cursor)
     db.close()
 
     songs = []
-    for row in rows:
+    for row in result['results']:
         songs.append({
             "song_id": row['song_id'],
             "title": row['title'],
@@ -372,10 +392,10 @@ def songs_api_route():
     org_id = current_user['org_id']
 
     db, cursor = get_connection()
-    rows = search_song(cursor, query, org_id) if query else list_songs(cursor, org_id)
+    result = perform_song_search(query, org_id, cursor=cursor)
     db.close()
 
-    return jsonify({'songs': [serialize_song(row) for row in rows]})
+    return jsonify({'songs': result['results']})
 
 @app.route('/services/new', methods=['GET', 'POST'])
 @require_leader('/services')
@@ -421,15 +441,35 @@ def create_service_route():
         ), 400
 
     db, cursor = get_connection()
-    service_id = create_service(
-        cursor,
+    create_result = create_new_service(
         payload['service_name'],
         payload['service_type'],
         payload['service_date'],
         payload['service_time'],
         payload['leader_id'],
         org_id,
+        cursor=cursor,
     )
+    if not create_result['success']:
+        db.close()
+        return render_template(
+            'create_service_view.html',
+            roles=SERVICE_ROLES,
+            users=users,
+            songs=songs,
+            message=create_result['message'],
+            form_data={
+                'service_date': request.form.get('service_date', ''),
+                'service_time': request.form.get('service_time', '09:00'),
+                'leader_id': request.form.get('leader_id', ''),
+            },
+            selected_assignments=payload['assignments'],
+            selected_songs=get_selected_songs_by_ids(songs, payload['song_ids']),
+            current_user=current_user,
+            can_manage=True,
+        ), 400
+
+    service_id = create_result['service_id']
     save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
     db.commit()
     db.close()

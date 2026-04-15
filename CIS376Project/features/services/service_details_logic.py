@@ -3,8 +3,11 @@ from features.services.service_songs_model import get_service_setlist
 from features.services.service_musicians_model import get_musicians_for_service
 from features.services.services_model import get_service_by_id
 
-def get_full_service_details(service_id, org_id):
-    db, cursor = get_connection()
+def get_full_service_details(service_id, org_id, cursor=None):
+    managed_connection = cursor is None
+    db = None
+    if managed_connection:
+        db, cursor = get_connection()
 
     try:
         service = get_service_by_id(cursor, service_id, org_id)
@@ -30,4 +33,5 @@ def get_full_service_details(service_id, org_id):
             "message": f"Error: {str(e)}"
         }
     finally:
-        db.close()
+        if managed_connection and db is not None:
+            db.close()
