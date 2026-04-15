@@ -4,7 +4,9 @@ from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect
 from database.connection import get_connection
 from database.schema import create_database
-from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service, smart_save_musicians, get_requests_for_user, update_musician_response, reset_musician_request, get_musician_row
+from features.invitations.invitations_model import accept_invitation, decline_invitation, get_invitation_by_musicians_id, get_invitations_by_user
+from features.invitations.send_invitation_logic import send_service_invitation
+from features.services.service_musicians_model import assign_musician, clear_musicians_for_service, get_musicians_for_service, smart_save_musicians, update_musician_response, reset_musician_request, get_musician_row
 from features.services.service_songs_model import add_song_to_service, clear_songs_for_service, get_songs_for_service
 from features.services.services_model import create_service, delete_service, get_service_by_id, list_services, list_services_for_user, update_service
 from features.songs.add_song_logic import add_new_song
@@ -180,8 +182,39 @@ def parse_json_list(raw_value):
     except (TypeError, json.JSONDecodeError):
         return []
 
-def save_service_relations(cursor, service_id, assignments, song_ids, org_id: int = 1):
+def serialize_invitation_request(invitation_row):
+    status = invitation_row['invitation_status']
+    accepted = None
+    if status == 'Accepted':
+        accepted = 1
+    elif status == 'Declined':
+        accepted = 0
+
+    return {
+        'invitation_id': invitation_row['invitation_id'],
+        'musicians_id': invitation_row['musicians_id'],
+        'service_id': invitation_row['service_id'],
+        'instrument': invitation_row['instrument'] or '',
+        'accepted': accepted,
+        'service_date': invitation_row['service_date'],
+        'service_time': invitation_row['service_time'],
+        'service_name': invitation_row['service_name'],
+    }
+
+def save_service_relations(cursor, service_id, assignments, song_ids, org_id: int = 1, sender_id=None):
     smart_save_musicians(cursor, service_id, assignments, org_id)
+
+    if sender_id is not None:
+        for assignment_row in get_musicians_for_service(cursor, service_id, org_id):
+            send_service_invitation(
+                sender_id,
+                service_id,
+                org_id=org_id,
+                recipient_user_id=assignment_row['user_id'],
+                musicians_id=assignment_row['musicians_id'],
+                instrument=assignment_row['instrument'],
+                cursor=cursor,
+            )
 
     clear_songs_for_service(cursor, service_id, org_id)
     for index, song_id in enumerate(song_ids, start=1):
@@ -397,7 +430,7 @@ def create_service_route():
         payload['leader_id'],
         org_id,
     )
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id)
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
     db.commit()
     db.close()
 
@@ -490,7 +523,7 @@ def update_service_route(service_id):
         payload['leader_id'],
         org_id,
     )
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id)
+    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
     db.commit()
     db.close()
 
@@ -514,7 +547,7 @@ def my_requests_route():
     current_user = get_current_user()
     org_id = current_user['org_id']
     db, cursor = get_connection()
-    requests = get_requests_for_user(cursor, current_user['id'], org_id)
+    requests = [serialize_invitation_request(row) for row in get_invitations_by_user(cursor, current_user['id'], org_id) if row['musicians_id'] is not None]
     db.close()
     return render_template(
         'my_requests_view.html',
@@ -530,11 +563,12 @@ def accept_request_route(musicians_id):
     current_user = get_current_user()
     org_id = current_user['org_id']
     db, cursor = get_connection()
-    row = get_musician_row(cursor, musicians_id, org_id)
+    row = get_invitation_by_musicians_id(cursor, musicians_id, org_id)
     if row is None or row['user_id'] != current_user['id']:
         db.close()
         session['message'] = 'Request not found.'
         return redirect('/my-requests')
+    accept_invitation(cursor, row['invitation_id'], org_id)
     update_musician_response(cursor, musicians_id, 1, org_id)
     db.commit()
     db.close()
@@ -547,11 +581,12 @@ def decline_request_route(musicians_id):
     current_user = get_current_user()
     org_id = current_user['org_id']
     db, cursor = get_connection()
-    row = get_musician_row(cursor, musicians_id, org_id)
+    row = get_invitation_by_musicians_id(cursor, musicians_id, org_id)
     if row is None or row['user_id'] != current_user['id']:
         db.close()
         session['message'] = 'Request not found.'
         return redirect('/my-requests')
+    decline_invitation(cursor, row['invitation_id'], org_id)
     update_musician_response(cursor, musicians_id, 0, org_id)
     db.commit()
     db.close()
@@ -568,6 +603,20 @@ def rerequest_musician_route(service_id, musicians_id):
     if row is None or row['service_id'] != service_id:
         db.close()
         session['message'] = 'Assignment not found.'
+        return redirect(f'/services/{service_id}')
+    result = send_service_invitation(
+        current_user['id'],
+        service_id,
+        org_id=org_id,
+        recipient_user_id=row['user_id'],
+        musicians_id=musicians_id,
+        instrument=row['instrument'],
+        cursor=cursor,
+        force_resend=True,
+    )
+    if not result['success']:
+        db.close()
+        session['message'] = result['message']
         return redirect(f'/services/{service_id}')
     reset_musician_request(cursor, musicians_id, org_id)
     db.commit()

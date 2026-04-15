@@ -6,6 +6,7 @@ import pytest
 import app as app_module
 import main as main_module
 from database.schema import create_database
+from features.invitations.invitations_model import get_invitations_by_user
 from features.users.users_model import create_user
 from features.services.services_model import create_service
 from features.songs.songs_model import create_song
@@ -168,12 +169,16 @@ def test_save_service_relations_and_detail(temp_app_db):
     create_song(cursor, 'Song B', 'Artist B', 'D', 90, org_id='org-1')
     db.commit()
 
-    app_module.save_service_relations(cursor, service_id, [{'role': 'Singer', 'user_id': 1}], [1, 2], org_id='org-1')
+    app_module.save_service_relations(cursor, service_id, [{'role': 'Singer', 'user_id': 1}], [1, 2], org_id='org-1', sender_id=1)
     db.commit()
 
     cursor.execute('SELECT * FROM service_songs WHERE service_id = ?', (service_id,))
     rows = cursor.fetchall()
     assert len(rows) == 2
+
+    invitations = get_invitations_by_user(cursor, 1, 'org-1')
+    assert len(invitations) == 1
+    assert invitations[0]['invitation_status'] == 'Pending'
 
     cursor.execute('SELECT * FROM services WHERE service_id = ?', (service_id,))
     service_row = cursor.fetchone()
