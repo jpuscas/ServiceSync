@@ -11,14 +11,14 @@ def create_songs_table(cursor):
         youtube_url TEXT,
         chords_pdf TEXT,
         lyrics_pdf TEXT,
-        org_id INTEGER NOT NULL DEFAULT 1,
+        org_id TEXT NOT NULL DEFAULT 'default',
         UNIQUE(title, artist, org_id)
     );
 
     ''')
 
 def create_song(cursor, title: str, artist: str, default_key: str, default_tempo: int = None,
-                youtube_url: str = None, chords_pdf: str = None, lyrics_pdf: str = None, org_id: int = 1):
+                youtube_url: str = None, chords_pdf: str = None, lyrics_pdf: str = None, org_id: str = 'default'):
     """Create a new song and return its ID, or None if duplicate."""
     try:
         cursor.execute('''
@@ -31,7 +31,7 @@ def create_song(cursor, title: str, artist: str, default_key: str, default_tempo
     except sqlite3.IntegrityError:
         return None
 
-def get_song_by_id(cursor, song_id, org_id: int = 1):
+def get_song_by_id(cursor, song_id, org_id: str = 'default'):
     """Retrieve a song by ID."""
     cursor.execute('''
     SELECT * FROM songs
@@ -40,12 +40,12 @@ def get_song_by_id(cursor, song_id, org_id: int = 1):
     row = cursor.fetchone()
     return row if row else None
 
-def list_songs(cursor, org_id: int = 1):
+def list_songs(cursor, org_id: str = 'default'):
     cursor.execute('SELECT * FROM songs WHERE org_id = ?', (org_id,))
     rows = cursor.fetchall()
     return rows
 
-def search_song(cursor, search_term, org_id: int = 1):
+def search_song(cursor, search_term, org_id: str = 'default'):
     cursor.execute('''
     SELECT * FROM songs
     WHERE (title LIKE ? OR artist LIKE ?) AND org_id = ?
@@ -53,7 +53,7 @@ def search_song(cursor, search_term, org_id: int = 1):
 
     return cursor.fetchall()
 
-def update_song_fields(cursor, song_id: int, org_id: int = 1, **fields):
+def update_song_fields(cursor, song_id: int, org_id: str = 'default', **fields):
     """Update arbitrary song fields."""
     if not fields:
         return
@@ -69,7 +69,7 @@ def update_song_fields(cursor, song_id: int, org_id: int = 1, **fields):
     params.append(org_id)
     cursor.execute(sql, tuple(params))
 
-def update_song(cursor, song_id, title=None, artist=None, default_key=None, default_tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None, org_id: int = 1):
+def update_song(cursor, song_id, title=None, artist=None, default_key=None, default_tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None, org_id: str = 'default'):
     """Update song fields (legacy function)."""
     fields = {}
     if title is not None: fields['title'] = title
@@ -81,7 +81,7 @@ def update_song(cursor, song_id, title=None, artist=None, default_key=None, defa
     if lyrics_pdf is not None: fields['lyrics_pdf'] = lyrics_pdf
     update_song_fields(cursor, song_id, org_id, **fields)
 
-def delete_song(cursor, song_id: int, org_id: int = 1):
+def delete_song(cursor, song_id: int, org_id: str = 'default'):
     cursor.execute('''
     DELETE FROM songs WHERE song_id = ? AND org_id = ?
     ''', (song_id, org_id))

@@ -7,19 +7,19 @@ def create_invitations_table(cursor):
         invitation_status TEXT NOT NULL DEFAULT 'Pending',
         invitation_date DATE NOT NULL,
         invitation_time TIME NOT NULL,
-        org_id INTEGER NOT NULL DEFAULT 1,
+        org_id TEXT NOT NULL DEFAULT 'default',
         FOREIGN KEY (service_id) REFERENCES services(service_id),
         FOREIGN KEY (user_id) REFERENCES users(id)
         );  
     ''')
 
-def create_invitation(cursor, service_id: int, user_id: int, invitation_status: str, invitation_date: str, invitation_time: str, org_id: int = 1):
+def create_invitation(cursor, service_id: int, user_id: int, invitation_status: str, invitation_date: str, invitation_time: str, org_id: str = 'default'):
     cursor.execute('''
         INSERT INTO invitations (service_id, user_id, invitation_status, invitation_date, invitation_time, org_id)
         VALUES (?, ?, ?, ?, ?, ?)
     ''', (service_id, user_id, invitation_status, invitation_date, invitation_time, org_id))
 
-def get_invitations_by_user(cursor, user_id: int, org_id: int = 1):
+def get_invitations_by_user(cursor, user_id: int, org_id: str = 'default'):
     cursor.execute('''
         SELECT i.*, s.service_name, s.service_date, s.service_time
         FROM invitations i
@@ -29,7 +29,7 @@ def get_invitations_by_user(cursor, user_id: int, org_id: int = 1):
     ''', (user_id, org_id))
     return cursor.fetchall()
 
-def get_invitations_by_service(cursor, service_id: int, org_id: int = 1):
+def get_invitations_by_service(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
         SELECT i.*, u.username AS user_name
         FROM invitations i
@@ -39,7 +39,7 @@ def get_invitations_by_service(cursor, service_id: int, org_id: int = 1):
     ''', (service_id, org_id))
     return cursor.fetchall()
 
-def get_accepted_invitations_by_user(cursor, user_id: int, org_id: int = 1):
+def get_accepted_invitations_by_user(cursor, user_id: int, org_id: str = 'default'):
     cursor.execute('''
         SELECT i.*, s.service_name, s.service_date, s.service_time
         FROM invitations i
@@ -49,7 +49,7 @@ def get_accepted_invitations_by_user(cursor, user_id: int, org_id: int = 1):
     ''', (user_id, org_id))
     return cursor.fetchall()
 
-def get_declined_invitations_by_user(cursor, user_id: int, org_id: int = 1):
+def get_declined_invitations_by_user(cursor, user_id: int, org_id: str = 'default'):
     cursor.execute('''
         SELECT i.*, s.service_name, s.service_date, s.service_time
         FROM invitations i
@@ -59,7 +59,7 @@ def get_declined_invitations_by_user(cursor, user_id: int, org_id: int = 1):
     ''', (user_id, org_id))
     return cursor.fetchall()
 
-def get_service_attendees(cursor, service_id: int, org_id: int = 1):
+def get_service_attendees(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
         SELECT i.*, u.id AS user_id, u.username, u.email
         FROM invitations i
@@ -84,7 +84,7 @@ def decline_invitation(cursor, invitation_id: int):
     update_invitation_status(cursor, invitation_id, 'Declined')
 
 
-def delete_invitation(cursor, invitation_id: int, org_id: int = 1):
+def delete_invitation(cursor, invitation_id: int, org_id: str = 'default'):
     cursor.execute('''
         DELETE FROM invitations
         WHERE invitation_id = ? AND org_id = ?

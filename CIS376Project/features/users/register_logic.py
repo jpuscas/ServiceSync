@@ -4,7 +4,7 @@ from features.users.login_logic import login_user
 from features.users.user_verification import generate_verification_token, set_verification_code
 
 
-def register_user(cursor, username: str, email: str, password: str, org_id: int = 1, first_name: str = None,last_name: str = None):
+def register_user(cursor, username: str, email: str, password: str, org_id: str = 'default', first_name: str = None,last_name: str = None):
     username = (username or "").strip()
     email = (email or "").strip().lower()
     password = password or ""

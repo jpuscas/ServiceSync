@@ -6,7 +6,7 @@ def create_musicians_table(cursor):
         service_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         instrument TEXT NOT NULL,
-        org_id INTEGER NOT NULL DEFAULT 1,
+        org_id TEXT NOT NULL,
         accepted INTEGER DEFAULT NULL,
         UNIQUE(service_id, user_id, instrument, org_id),
 
@@ -16,7 +16,7 @@ def create_musicians_table(cursor):
     );
     ''')
 
-def assign_musician(cursor, service_id: int, user_id: int, instrument: str, org_id: int = 1):
+def assign_musician(cursor, service_id: int, user_id: int, instrument: str, org_id: str = 'default'):
     """Assign a musician to a service."""
     cursor.execute('''
     INSERT INTO service_musicians (service_id, user_id, instrument, org_id)
@@ -25,7 +25,7 @@ def assign_musician(cursor, service_id: int, user_id: int, instrument: str, org_
 
     return cursor.lastrowid  # assignment_id
 
-def get_musicians_for_service(cursor, service_id: int, org_id: int = 1):
+def get_musicians_for_service(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.user_id, sm.instrument, sm.accepted,
            u.username, u.first_name, u.last_name
@@ -39,7 +39,7 @@ def get_musicians_for_service(cursor, service_id: int, org_id: int = 1):
     return [dict(row) for row in rows]
 
 #view all assignments for one musician
-def get_musicians_assignment(cursor, user_id: int, org_id: int = 1):
+def get_musicians_assignment(cursor, user_id: int, org_id: str = 'default'):
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.instrument, s.service_name, s.service_date
     FROM service_musicians sm
@@ -50,7 +50,7 @@ def get_musicians_assignment(cursor, user_id: int, org_id: int = 1):
 
     return cursor.fetchall()
 
-def get_instrument(cursor, service_id: int, instrument: str, org_id: int = 1):
+def get_instrument(cursor, service_id: int, instrument: str, org_id: str = 'default'):
     cursor.execute('''
     SELECT user_id
     FROM service_musicians
@@ -58,7 +58,7 @@ def get_instrument(cursor, service_id: int, instrument: str, org_id: int = 1):
     ''', (service_id, instrument, org_id))
     return cursor.fetchall()
 
-def update_musician_fields(cursor, musicians_id: int, org_id: int = None, **fields):
+def update_musician_fields(cursor, musicians_id: int, org_id: str = None, **fields):
     """Update arbitrary musician fields."""
     if not fields:
         return
@@ -77,37 +77,29 @@ def update_musician_fields(cursor, musicians_id: int, org_id: int = None, **fiel
 
     cursor.execute(sql, tuple(params))
 
-def update_musician(cursor, musicians_id: int, instrument: str, org_id: int = None):
+def update_musician(cursor, musicians_id: int, instrument: str, org_id: str = 'default'):
     """Update musician instrument (legacy function)."""
     update_musician_fields(cursor, musicians_id, org_id, instrument=instrument)
     updated_row = get_musician_row(cursor, musicians_id, org_id)
     if not updated_row:
         return []
 
-    if org_id is None:
-        return get_musicians_assignment(cursor, updated_row['user_id'])
     return get_musicians_assignment(cursor, updated_row['user_id'], org_id)
 
-def delete_musician(cursor, musicians_id: int, org_id: int = None):
+def delete_musician(cursor, musicians_id: int, org_id: str = 'default'):
     """Delete a musician assignment by ID."""
-    if org_id is None:
-        cursor.execute('''
-        DELETE FROM service_musicians
-        WHERE musicians_id = ?
-        ''', (musicians_id,))
-    else:
-        cursor.execute('''
-        DELETE FROM service_musicians
-        WHERE musicians_id = ? AND org_id = ?
-        ''', (musicians_id, org_id))
+    cursor.execute('''
+    DELETE FROM service_musicians
+    WHERE musicians_id = ? AND org_id = ?
+    ''', (musicians_id, org_id))
 
-def clear_musicians_for_service(cursor, service_id: int, org_id: int = 1):
+def clear_musicians_for_service(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
     DELETE FROM service_musicians
     WHERE service_id = ? AND org_id = ?
     ''', (service_id, org_id))
 
-def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: int = 1):
+def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: str):
     """Sync musicians for a service while preserving accepted/denied responses."""
     cursor.execute(
         'SELECT musicians_id, user_id, instrument, accepted FROM service_musicians WHERE service_id = ? AND org_id = ?',
@@ -131,7 +123,7 @@ def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: int
                 (service_id, uid, instr, org_id)
             )
 
-def get_requests_for_user(cursor, user_id: int, org_id: int = 1):
+def get_requests_for_user(cursor, user_id: int, org_id: str):
     """Return all service requests for a user, pending first then denied then accepted."""
     cursor.execute('''
     SELECT sm.musicians_id, sm.service_id, sm.instrument, sm.accepted,
@@ -144,7 +136,7 @@ def get_requests_for_user(cursor, user_id: int, org_id: int = 1):
     ''', (user_id, org_id))
     return [dict(row) for row in cursor.fetchall()]
 
-def update_musician_response(cursor, musicians_id: int, accepted: int, org_id: int = None):
+def update_musician_response(cursor, musicians_id: int, accepted: int, org_id: str = None):
     if org_id is None:
         cursor.execute('''
         UPDATE service_musicians SET accepted = ? WHERE musicians_id = ?
@@ -154,7 +146,7 @@ def update_musician_response(cursor, musicians_id: int, accepted: int, org_id: i
         UPDATE service_musicians SET accepted = ? WHERE musicians_id = ? AND org_id = ?
         ''', (accepted, musicians_id, org_id))
 
-def reset_musician_request(cursor, musicians_id: int, org_id: int = None):
+def reset_musician_request(cursor, musicians_id: int, org_id: str = None):
     if org_id is None:
         cursor.execute('''
         UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ?
@@ -164,7 +156,7 @@ def reset_musician_request(cursor, musicians_id: int, org_id: int = None):
         UPDATE service_musicians SET accepted = NULL WHERE musicians_id = ? AND org_id = ?
         ''', (musicians_id, org_id))
 
-def get_musician_row(cursor, musicians_id: int, org_id: int = None):
+def get_musician_row(cursor, musicians_id: int, org_id: str = None):
     query = '''
     SELECT sm.*, u.username, u.first_name, u.last_name
     FROM service_musicians sm

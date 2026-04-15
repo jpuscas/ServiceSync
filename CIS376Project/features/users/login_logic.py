@@ -1,6 +1,6 @@
 from features.users.users_model import authenticate_user
 
-def login_user(cursor, username, password, org_id: int = 1):
+def login_user(cursor, username, password, org_id: str = 'default'):
     user = authenticate_user(cursor, username, password, org_id)
 
     if not user:

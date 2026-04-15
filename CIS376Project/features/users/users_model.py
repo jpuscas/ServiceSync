@@ -14,7 +14,7 @@ def create_users_table(cursor):
         password TEXT NOT NULL,
         
         role TEXT NOT NULL DEFAULT 'member',
-        org_id INTEGER NOT NULL DEFAULT 1,
+        org_id TEXT NOT NULL DEFAULT 'default',
         
         is_verified INTEGER NOT NULL DEFAULT 0,
         verification_token TEXT UNIQUE,
@@ -35,7 +35,7 @@ def create_users_table(cursor):
         END;
         ''')
 
-def create_user(cursor, username: str, email: str, password: str, first_name: str = None, last_name: str = None, org_id: int = 1): #other objects like phone can be added if necessary
+def create_user(cursor, username: str, email: str, password: str, first_name: str = None, last_name: str = None, org_id: str = 'default'): #other objects like phone can be added if necessary
     if password is None:
         raise sqlite3.IntegrityError("NOT NULL constraint failed: users.password")
 
@@ -59,7 +59,7 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
     stored_bytes = stored_hash.encode('utf-8')
     return bcrypt.checkpw(plain_bytes, stored_bytes)
 
-def authenticate_user(cursor, username: str, password: str, org_id: int = 1):
+def authenticate_user(cursor, username: str, password: str, org_id: str = 'default'):
     cursor.execute('''
     SELECT id, username, password, role, is_verified, org_id
     FROM users 
@@ -84,7 +84,7 @@ def authenticate_user(cursor, username: str, password: str, org_id: int = 1):
         'org_id': user[5]
     }
 
-def get_username_by_email(cursor, email: str, org_id: int = 1):
+def get_username_by_email(cursor, email: str, org_id: str = 'default'):
     cursor.execute('''
     SELECT username FROM users WHERE email = ? AND org_id = ?
     ''', (email, org_id))
@@ -98,7 +98,7 @@ def get_user_by_id(cursor, user_id: int):
 
     return cursor.fetchone()
 
-def list_users(cursor, org_id: int = 1):
+def list_users(cursor, org_id: str = 'default'):
     cursor.execute('''
     SELECT id, username, first_name, last_name, email, role
     FROM users
@@ -144,7 +144,7 @@ def update_phone(cursor, user_id: int, phone: str):
     WHERE id = ?
     ''', (phone, user_id))
 
-def set_role(cursor, user_id: int, new_role: str, org_id: int = None):
+def set_role(cursor, user_id: int, new_role: str, org_id: str = None):
     if org_id is None:
         cursor.execute('''
         UPDATE users
@@ -158,7 +158,7 @@ def set_role(cursor, user_id: int, new_role: str, org_id: int = None):
         WHERE id = ? AND org_id = ?
         ''', (new_role, user_id, org_id))
 
-def promote_to_leader(cursor, admin_id: int, user_id: int, org_id: int = 1):
+def promote_to_leader(cursor, admin_id: int, user_id: int, org_id: str = 'default'):
     # Check if admin_id has admin role and belongs to the org
     admin = get_user_by_id(cursor, admin_id)
     if not admin or admin['role'].lower() != 'admin' or admin['org_id'] != org_id:
