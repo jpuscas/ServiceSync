@@ -97,7 +97,7 @@ def test_remove_song_from_service_ignores_wrong_org():
     add_song_to_service(cursor, 1, 1, 'G', 80, 1)
     db.commit()
 
-    remove_song_from_service(cursor, 1, org_id=2)
+    remove_song_from_service(cursor, 1, org_id='org-2')
     db.commit()
 
     rows = get_service_setlist(cursor, 1)

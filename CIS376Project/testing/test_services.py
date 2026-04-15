@@ -154,11 +154,11 @@ def test_update_service_ignores_wrong_org():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1, org_id=1)
+                   '2026-03-08', '09:30', 1, org_id='org-1')
     db.commit()
 
     results = update_service(cursor, 1, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '10:00', 1, org_id=2)
+                   '2026-03-08', '10:00', 1, org_id='org-2')
     db.commit()
 
     assert results == []

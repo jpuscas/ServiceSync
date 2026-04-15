@@ -9,7 +9,7 @@ def create_service_songs_table(cursor):
         custom_key TEXT,
         custom_tempo INTEGER,
         song_order INTEGER,
-        org_id INTEGER NOT NULL DEFAULT 1,
+        org_id TEXT NOT NULL DEFAULT 'default',
 
         UNIQUE(service_id, song_id, org_id),
 
@@ -18,7 +18,7 @@ def create_service_songs_table(cursor):
         );
     ''')
 
-def add_song_to_service(cursor, service_id: int, song_id: int, custom_key=None, custom_tempo=None, song_order=None, org_id: int = 1):
+def add_song_to_service(cursor, service_id: int, song_id: int, custom_key=None, custom_tempo=None, song_order=None, org_id: str = 'default'):
     """Add a song to a service setlist."""
     cursor.execute('''
     INSERT INTO service_songs (service_id, song_id, custom_key, custom_tempo, song_order, org_id)
@@ -26,7 +26,7 @@ def add_song_to_service(cursor, service_id: int, song_id: int, custom_key=None, 
     ''', (service_id, song_id, custom_key, custom_tempo, song_order, org_id))
     return cursor.lastrowid
 
-def get_songs_for_service(cursor, service_id: int, org_id: int = 1):
+def get_songs_for_service(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
     SELECT ss.service_song_id,
            ss.service_id,
@@ -49,11 +49,11 @@ def get_songs_for_service(cursor, service_id: int, org_id: int = 1):
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
 
-def get_service_setlist(cursor, service_id: int, org_id: int = 1):
+def get_service_setlist(cursor, service_id: int, org_id: str = 'default'):
     # Alias for get_songs_for_service, kept for backward compatibility with existing tests.
     return get_songs_for_service(cursor, service_id, org_id)
 
-def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_tempo, song_order, service_id, org_id: int = 1):
+def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_tempo, song_order, service_id, org_id: str = 'default'):
     cursor.execute('''
     UPDATE service_songs
     SET custom_key = ?, custom_tempo = ?, song_order = ?
@@ -61,19 +61,13 @@ def update_song_in_setlist(cursor, service_song_id: int, custom_key, custom_temp
     ''', (custom_key, custom_tempo, song_order, service_song_id, service_id, org_id))
     return get_songs_for_service(cursor, service_id, org_id)
 
-def remove_song_from_service(cursor, service_song_id: int, org_id: int = None):
-    if org_id is None:
-        cursor.execute('''
-        DELETE FROM service_songs
-        WHERE service_song_id = ?
-        ''', (service_song_id,))
-    else:
-        cursor.execute('''
-        DELETE FROM service_songs
-        WHERE service_song_id = ? AND org_id = ?
-        ''', (service_song_id, org_id))
+def remove_song_from_service(cursor, service_song_id: int, org_id: str = 'default'):
+    cursor.execute('''
+    DELETE FROM service_songs
+    WHERE service_song_id = ? AND org_id = ?
+    ''', (service_song_id, org_id))
 
-def clear_songs_for_service(cursor, service_id: int, org_id: int = 1):
+def clear_songs_for_service(cursor, service_id: int, org_id: str = 'default'):
     cursor.execute('''
     DELETE FROM service_songs
     WHERE service_id = ? AND org_id = ?

@@ -31,11 +31,11 @@ def temp_app_db(monkeypatch, tmp_path):
     return db_path
 
 
-def create_verified_user(db_path, username='user1'):
+def create_verified_user(db_path, username='user1', org_id='1'):
     db = sqlite3.connect(str(db_path))
     db.row_factory = sqlite3.Row
     cursor = db.cursor()
-    user_id = create_user(cursor, username, f'{username}@example.com', 'password', org_id=1)
+    user_id = create_user(cursor, username, f'{username}@example.com', 'password', org_id=org_id)
     cursor.execute('UPDATE users SET is_verified = 1 WHERE id = ?', (user_id,))
     db.commit()
     db.close()
@@ -83,7 +83,7 @@ def test_build_service_detail_returns_none_for_missing_row():
 
 
 def test_load_service_page_context_returns_empty_lists(temp_app_db):
-    users, songs, services, selected_service = app_module.load_service_page_context(org_id=1)
+    users, songs, services, selected_service = app_module.load_service_page_context(org_id='org-1')
     assert users == []
     assert songs == []
     assert services == []
@@ -159,16 +159,16 @@ def test_main_initialize_database_creates_file(monkeypatch, tmp_path, capsys):
 
 
 def test_save_service_relations_and_detail(temp_app_db):
-    create_verified_user(temp_app_db, username='leader')
+    create_verified_user(temp_app_db, username='leader', org_id='org-1')
     db = sqlite3.connect(str(temp_app_db))
     db.row_factory = sqlite3.Row
     cursor = db.cursor()
-    service_id = create_service(cursor, 'Sunday Worship', 'Worship', '2026-04-11', '09:00', 1, org_id=1)
-    create_song(cursor, 'Song A', 'Artist A', 'G', 80, org_id=1)
-    create_song(cursor, 'Song B', 'Artist B', 'D', 90, org_id=1)
+    service_id = create_service(cursor, 'Sunday Worship', 'Worship', '2026-04-11', '09:00', 1, org_id='org-1')
+    create_song(cursor, 'Song A', 'Artist A', 'G', 80, org_id='org-1')
+    create_song(cursor, 'Song B', 'Artist B', 'D', 90, org_id='org-1')
     db.commit()
 
-    app_module.save_service_relations(cursor, service_id, [{'role': 'Singer', 'user_id': 1}], [1, 2], org_id=1)
+    app_module.save_service_relations(cursor, service_id, [{'role': 'Singer', 'user_id': 1}], [1, 2], org_id='org-1')
     db.commit()
 
     cursor.execute('SELECT * FROM service_songs WHERE service_id = ?', (service_id,))
@@ -177,7 +177,7 @@ def test_save_service_relations_and_detail(temp_app_db):
 
     cursor.execute('SELECT * FROM services WHERE service_id = ?', (service_id,))
     service_row = cursor.fetchone()
-    detail = app_module.build_service_detail(cursor, service_row, org_id=1)
+    detail = app_module.build_service_detail(cursor, service_row, org_id='org-1')
     assert detail['service_id'] == service_id
     assert 'songs' in detail
     db.close()
