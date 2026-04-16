@@ -110,7 +110,22 @@ def update_service(cursor, service_id, service_name=None, service_type=None, ser
     return [row] if row else []
 
 def delete_service(cursor, service_id: int, org_id: str = 'default'):
-    """Delete a service by ID."""
+    """Delete a service by ID along with dependent rows."""
+    cursor.execute('''
+    DELETE FROM invitations
+    WHERE service_id = ? AND org_id = ?
+    ''', (service_id, org_id))
+
+    cursor.execute('''
+    DELETE FROM service_songs
+    WHERE service_id = ? AND org_id = ?
+    ''', (service_id, org_id))
+
+    cursor.execute('''
+    DELETE FROM service_musicians
+    WHERE service_id = ? AND org_id = ?
+    ''', (service_id, org_id))
+
     cursor.execute('''
     DELETE FROM services
     WHERE service_id = ? AND org_id = ?

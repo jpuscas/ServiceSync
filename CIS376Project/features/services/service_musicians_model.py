@@ -1,3 +1,6 @@
+from features.invitations.invitations_model import delete_invitations_for_musician
+
+
 def create_musicians_table(cursor):
     """Create the service_musicians table."""
     cursor.execute('''
@@ -88,12 +91,17 @@ def update_musician(cursor, musicians_id: int, instrument: str, org_id: str = 'd
 
 def delete_musician(cursor, musicians_id: int, org_id: str = 'default'):
     """Delete a musician assignment by ID."""
+    delete_invitations_for_musician(cursor, musicians_id, org_id)
     cursor.execute('''
     DELETE FROM service_musicians
     WHERE musicians_id = ? AND org_id = ?
     ''', (musicians_id, org_id))
 
 def clear_musicians_for_service(cursor, service_id: int, org_id: str = 'default'):
+    cursor.execute('''
+    DELETE FROM invitations
+    WHERE service_id = ? AND org_id = ? AND musicians_id IS NOT NULL
+    ''', (service_id, org_id))
     cursor.execute('''
     DELETE FROM service_musicians
     WHERE service_id = ? AND org_id = ?
@@ -113,6 +121,7 @@ def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: str
     for (uid, instr), row in list(existing.items()):
         if row['accepted'] != 0:  # NULL or 1 are manageable
             if (uid, instr) not in new_set:
+                delete_invitations_for_musician(cursor, row['musicians_id'], org_id)
                 cursor.execute('DELETE FROM service_musicians WHERE musicians_id = ? AND org_id = ?', (row['musicians_id'], org_id))
 
     # Insert new rows that don't already exist
