@@ -6,6 +6,7 @@ from features.invitations import (
     create_invitation,
     get_invitations_by_user,
     get_invitations_by_service,
+    get_invitation_by_musicians_id,
     update_invitation_status,
     accept_invitation,
     decline_invitation,
@@ -32,13 +33,14 @@ def test_valid_invitation():
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
 
-    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM')
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=11, instrument='Guitar')
     db.commit()
 
     invitations = get_invitations_by_user(cursor, 1)
     assert len(invitations) == 1
     assert invitations[0]['invitation_status'] == 'Pending'
     assert invitations[0]['service_name'] == 'Sunday Worship'
+    assert invitations[0]['instrument'] == 'Guitar'
 
 def test_get_invitations_by_service():
     db, cursor = setup_db()
@@ -48,13 +50,14 @@ def test_get_invitations_by_service():
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
 
-    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM')
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=12, instrument='Drums')
     db.commit()
 
     invitations = get_invitations_by_service(cursor, 1)
     assert len(invitations) == 1
     assert invitations[0]['invitation_status'] == 'Pending'
     assert invitations[0]['user_name'] == 'user1'
+    assert invitations[0]['instrument'] == 'Drums'
 
 
 def test_accept_decline_and_service_attendees():
@@ -65,8 +68,8 @@ def test_accept_decline_and_service_attendees():
     create_service(cursor, 'Sunday Worship', 'Worship', '3/8/2026', '9:00 AM', 1)
     db.commit()
 
-    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM')
-    create_invitation(cursor, 1, 2, 'Pending', '3/1/2026', '10:00 AM')
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=21, instrument='Singer')
+    create_invitation(cursor, 1, 2, 'Pending', '3/1/2026', '10:00 AM', musicians_id=22, instrument='Piano')
     db.commit()
 
     invitations_before = get_invitations_by_service(cursor, 1)
@@ -84,6 +87,22 @@ def test_accept_decline_and_service_attendees():
     attendees = get_service_attendees(cursor, 1)
     assert len(attendees) == 1
     assert attendees[0]['username'] == 'user1'
+    assert attendees[0]['instrument'] == 'Singer'
+
+
+def test_get_invitation_by_musicians_id():
+    db, cursor = setup_db()
+
+    create_user(cursor, 'user1', 'user1@gmail.com', 'pass')
+    create_service(cursor, 'Sunday Worship', 'Worship', '3/8/2026', '9:00 AM', 1)
+    db.commit()
+
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=31, instrument='Bass')
+    db.commit()
+
+    invitation = get_invitation_by_musicians_id(cursor, 31)
+    assert invitation['service_name'] == 'Sunday Worship'
+    assert invitation['instrument'] == 'Bass'
 
 
 def test_update_invitation_status():
@@ -94,7 +113,7 @@ def test_update_invitation_status():
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
 
-    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM')
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=41)
     db.commit()
 
     invitations = get_invitations_by_user(cursor, 1)
@@ -113,7 +132,7 @@ def test_delete_invitation():
                    '3/8/2026', '9:00 AM', 1)
     db.commit()
 
-    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM')
+    create_invitation(cursor, 1, 1, 'Pending', '3/1/2026', '10:00 AM', musicians_id=51)
     db.commit()
 
     invitations = get_invitations_by_user(cursor, 1)

@@ -348,6 +348,17 @@
             cursor: pointer;
         }
 
+        .btn-dropout {
+            padding: 10px 12px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(153, 27, 27, 0.1);
+            color: var(--danger);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .status-badge {
             display: inline-block;
             padding: 3px 10px;
@@ -587,6 +598,7 @@
     {% if selected_service %}
     <script>
         const canManage = JSON.parse('{{ can_manage|tojson }}');
+        const currentUserId = JSON.parse('{{ current_user.id|tojson }}');
         const availableUsers = JSON.parse('{{ users|tojson }}');
         const allSongs = JSON.parse('{{ songs|tojson }}');
         const serviceId = JSON.parse('{{ selected_service.service_id|tojson }}');
@@ -681,6 +693,21 @@
                     badge.className = 'status-badge ' + (assignment.accepted === 1 ? 'badge-accepted' : 'badge-pending');
                     badge.textContent = assignment.accepted === 1 ? 'Accepted' : 'Pending';
                     wrapper.appendChild(badge);
+
+                    if (
+                        assignment.accepted === 1 &&
+                        String(assignment.user_id || '') === String(currentUserId)
+                    ) {
+                        const button = document.createElement('button');
+                        button.type = 'submit';
+                        button.textContent = 'Drop Out';
+                        button.className = 'btn-dropout';
+                        button.formAction = `/requests/${assignment.musicians_id}/decline`;
+                        button.formMethod = 'POST';
+                        button.formNoValidate = true;
+
+                        wrapper.appendChild(button);
+                    }
                 }
 
                 assignmentList.appendChild(wrapper);

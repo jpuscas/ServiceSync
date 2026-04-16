@@ -85,6 +85,12 @@
             color: #7f1d1d;
         }
 
+        .alert.success {
+            background: rgba(20, 83, 45, 0.12);
+            border: 1px solid rgba(20, 83, 45, 0.2);
+            color: #14532d;
+        }
+
         .section-title {
             font-size: 1.15rem;
             font-weight: 700;
@@ -211,7 +217,9 @@
         </div>
 
         {% if message %}
-            <div class="alert">{{ message }}</div>
+            <div class="alert {% if 'accepted' in message.lower() %}success{% endif %}">
+                {{ message }}
+            </div>
         {% endif %}
 
         {% set pending  = requests | selectattr('accepted', 'equalto', none)  | list %}

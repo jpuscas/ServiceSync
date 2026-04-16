@@ -53,6 +53,8 @@ def create_database(cursor):
     _ensure_column(cursor, 'service_songs', 'org_id', "org_id TEXT NOT NULL DEFAULT 'default'")
     
     create_invitations_table(cursor)
+    _ensure_column(cursor, 'invitations', 'musicians_id', 'musicians_id INTEGER')
+    _ensure_column(cursor, 'invitations', 'instrument', 'instrument TEXT')
     _ensure_column(cursor, 'invitations', 'org_id', "org_id TEXT NOT NULL DEFAULT 'default'")
 
 
