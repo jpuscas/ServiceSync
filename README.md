@@ -76,13 +76,14 @@ CIS-376-Project/
     │   ├── songs/             # Song library and song management
     │   └── invitations/       # Service and organization requests
     └── testing/               # Automated pytest regression tests
+    |__ views/
 ```
 
 ---
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.10 or newer
 - pip
 - A terminal such as PowerShell or Command Prompt
 
@@ -93,8 +94,11 @@ CIS-376-Project/
 ### 1. Clone the repository
 
 ```powershell
-git clone <https://github.com/jnorman42/CIS-376-Project.git>
-cd CIS-376-Project
+HTTP for cloning
+https://github.com/jnorman42/CIS-376-Project.git
+
+We recommend cloning in your ide instead of terminal
+cd CIS376Project
 ```
 
 ### 2. Create a virtual environment
@@ -121,28 +125,38 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-### 5. Initialize the database
+### 5. Database is already in the github as it was force pushed 
 
-This creates the SQLite database and applies any required schema updates.
+You can run 
+python3 main.py 
+but it will just say:
+Database exists at YOUR-PROJECT-LOCATION/CIS376Project/project.db. Schema initialized/checked without clearing data.
 
-```powershell
-python .\CIS376Project\main.py
-```
+
+
+
 
 ### 6. Start the application
 
 ```powershell
-cd .\CIS376Project
+cd CIS376Project
+python3 app.py
+or 
+py app.py
+or
 python app.py
 ```
+pick the one that works with your python version
 
 ### 7. Open the app in your browser
 
 Go to:
 
-```text
 http://localhost:5000/login
-```
+
+In you browser.
+It will not work in Safari
+We recommend Firefox
 
 ---
 
@@ -151,8 +165,13 @@ http://localhost:5000/login
 1. Register a new account.
 2. Complete the verification step using the token shown by the app.
 3. Log in.
-4. If you are a leader, open the Organization page to invite users and manage members.
-5. Create or review services from the Services page.
+4. You will see the member portion
+
+1. If you want to see admin page log in with the hard coded admin credentials
+username: jasonpuscas
+password: password
+2. Log in.
+3. You will see the leader portion and have leader capabilities
 
 ---
 
@@ -161,7 +180,7 @@ http://localhost:5000/login
 To run the full automated test suite:
 
 ```powershell
-cd .\CIS376Project
+cd CIS376Project
 python -m pytest -q
 ```
 Current Test Coverage:
@@ -212,7 +231,7 @@ Current Test Coverage:
 - Run the database initializer again:
 
 ```powershell
-python .\CIS376Project\main.py
+python CIS376Project\main.py
 ```
 
 ### Tests are failing
