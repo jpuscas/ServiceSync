@@ -4,7 +4,9 @@ import sqlite3
 import pytest
 
 import app as app_module
+import database.connection as connection_module
 import main as main_module
+from database.connection import ensure_database_initialized
 from database.schema import create_database
 from features.users.users_model import create_user
 from features.services.services_model import create_service
@@ -139,23 +141,49 @@ def test_register_and_verify_routes(temp_app_db):
 
 def test_main_initialize_database_creates_file(monkeypatch, tmp_path, capsys):
     fake_path = tmp_path / 'dbfile.db'
-    monkeypatch.setattr(main_module.os.path, 'exists', lambda path: False)
-
-    def fake_get_connection(database=None):
-        assert database is None or str(database) == str(fake_path)
-        db = sqlite3.connect(str(fake_path))
-        db.row_factory = sqlite3.Row
-        db.execute('PRAGMA foreign_keys = ON;')
-        return db, db.cursor()
-
-    monkeypatch.setattr(main_module, 'get_connection', fake_get_connection)
-    monkeypatch.setattr(main_module, 'DEFAULT_DB_PATH', fake_path)
+    monkeypatch.setattr(main_module, 'ensure_database_initialized', lambda: (fake_path, False))
 
     main_module.initialize_database()
 
     # The initialize_database path should execute and print the expected status.
     captured = capsys.readouterr()
     assert 'Database created at' in captured.out
+
+
+def test_ensure_database_initialized_creates_sqlite_file(tmp_path):
+    db_path = tmp_path / 'created_by_initializer.db'
+
+    created_path, already_exists = ensure_database_initialized(db_path)
+
+    assert created_path == db_path
+    assert not already_exists
+    assert db_path.exists()
+
+
+def test_ensure_database_initialized_copies_legacy_database(monkeypatch, tmp_path):
+    legacy_path = tmp_path / 'legacy.db'
+    default_path = tmp_path / 'nested' / 'project.db'
+
+    legacy_db = sqlite3.connect(str(legacy_path))
+    legacy_cursor = legacy_db.cursor()
+    legacy_cursor.execute('CREATE TABLE migrated_table (value TEXT NOT NULL)')
+    legacy_cursor.execute("INSERT INTO migrated_table (value) VALUES ('kept-data')")
+    legacy_db.commit()
+    legacy_db.close()
+
+    monkeypatch.setattr(connection_module, 'DEFAULT_DB_PATH', default_path)
+    monkeypatch.setattr(connection_module, 'LEGACY_DB_PATH', legacy_path)
+
+    created_path, already_exists = connection_module.ensure_database_initialized()
+
+    assert created_path == default_path
+    assert already_exists
+
+    migrated_db = sqlite3.connect(str(default_path))
+    migrated_cursor = migrated_db.cursor()
+    migrated_cursor.execute('SELECT value FROM migrated_table')
+    assert migrated_cursor.fetchone()[0] == 'kept-data'
+    migrated_db.close()
 
 
 def test_save_service_relations_and_detail(temp_app_db):

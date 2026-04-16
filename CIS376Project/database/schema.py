@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+if __package__ in {None, ''}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from features.services.service_musicians_model import create_musicians_table
 from features.services.service_songs_model import create_service_songs_table
 from features.services.services_model import create_services_table
@@ -48,3 +54,13 @@ def create_database(cursor):
     
     create_invitations_table(cursor)
     _ensure_column(cursor, 'invitations', 'org_id', "org_id TEXT NOT NULL DEFAULT 'default'")
+
+
+if __name__ == '__main__':
+    from database.connection import ensure_database_initialized
+
+    database_path, db_already_exists = ensure_database_initialized()
+    if db_already_exists:
+        print(f'Database exists at {database_path}. Schema initialized/checked without clearing data.')
+    else:
+        print(f'Database created at {database_path}.')
