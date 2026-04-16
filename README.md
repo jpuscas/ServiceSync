@@ -98,7 +98,6 @@ HTTP for cloning
 https://github.com/jnorman42/CIS-376-Project.git
 
 We recommend cloning in your ide instead of terminal
-cd CIS376Project
 ```
 
 ### 2. Create a virtual environment
@@ -118,6 +117,10 @@ python -m venv .venv
 ```cmd
 .\.venv\Scripts\activate.bat
 ```
+**Alternative**
+source .venv/bin/activate
+
+
 
 ### 4. Install dependencies
 
@@ -126,9 +129,12 @@ python -m pip install -r requirements.txt
 ```
 
 ### 5. Database is already in the github as it was force pushed 
-
-You can run 
+1. Run:
+cd CIS376Project
+2. You can run:
+```
 python3 main.py 
+```
 but it will just say:
 Database exists at YOUR-PROJECT-LOCATION/CIS376Project/project.db. Schema initialized/checked without clearing data.
 
@@ -139,7 +145,6 @@ Database exists at YOUR-PROJECT-LOCATION/CIS376Project/project.db. Schema initia
 ### 6. Start the application
 
 ```powershell
-cd CIS376Project
 python3 app.py
 or 
 py app.py
@@ -151,10 +156,10 @@ pick the one that works with your python version
 ### 7. Open the app in your browser
 
 Go to:
-
+http://localhost:5000
+or
 http://localhost:5000/login
 
-In you browser.
 It will not work in Safari
 We recommend Firefox
 
@@ -189,7 +194,7 @@ Current Test Coverage:
 
 ---
 
-## Common Workflow
+## 2 Common Workflow
 
 ### For Members
 1. Log in
@@ -246,9 +251,18 @@ The application includes verified regression coverage for authentication, servic
 
 ---
 
+## Future Developement
+
+1. Email notifications for service or organization requests
+2. Text notifications for service or organization requests
+3. Organization Creation (anyone can create a organization)
+4. Have an organization table that will allow for better multi-organization capabilities
+
 ## Authors
 
-Created for the CIS 376 project.
+Jason Puscas
+Josh Norman
+Owen Bassharah
 
 ---
 
