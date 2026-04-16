@@ -1,6 +1,6 @@
 from database.connection import get_connection
 from features.invitations.invitations_model import create_invitation, get_invitation_by_musicians_id, get_invitation_by_service_user, update_invitation_details
-from features.users.users_model import get_user_by_id
+from features.users.users_model import get_user_by_id, user_belongs_to_org
 from features.services.services_model import get_service_by_id
 from datetime import datetime
 
@@ -17,7 +17,7 @@ def send_service_invitation(sender_id, service_id, recipient_email=None, org_id=
             return {"success": False, "message": "Service not found"}
 
         sender = get_user_by_id(cursor, sender_id)
-        if not sender or sender['org_id'] != org_id:
+        if not sender or not user_belongs_to_org(sender, org_id):
             return {"success": False, "message": "Sender does not belong to this organization."}
 
         is_admin = sender['role'].lower() == 'admin'
@@ -29,7 +29,7 @@ def send_service_invitation(sender_id, service_id, recipient_email=None, org_id=
         recipient = None
         if recipient_user_id is not None:
             recipient = get_user_by_id(cursor, recipient_user_id)
-            if recipient and recipient['org_id'] != org_id:
+            if recipient and not user_belongs_to_org(recipient, org_id):
                 recipient = None
         elif recipient_email:
             cursor.execute("SELECT id, username, email, org_id FROM users WHERE email = ? AND org_id = ?", (recipient_email, org_id))

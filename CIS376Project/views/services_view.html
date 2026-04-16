@@ -259,6 +259,18 @@
             color: var(--brand);
         }
 
+        .assignment-person {
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .assignment-person.locked {
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(20, 83, 45, 0.08);
+            border: 1px solid rgba(20, 83, 45, 0.14);
+        }
+
         .browser-wrap {
             display: grid;
             grid-template-columns: 0.9fr 1.1fr;
@@ -471,14 +483,11 @@
                 <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
                 <div class="topbar-links">
                     <a href="/">Home</a>
-                    <a href="/my-requests">Back to Requests</a>
+                    <a href="/my-requests">My Request</a>
                     {% if can_manage %}
                         <a href="/services/new">Create New Service</a>
                     {% endif %}
                 </div>
-                <form method="POST" action="/logout">
-                    <button type="submit" class="logout-btn">Logout</button>
-                </form>
             </div>
         </div>
 
@@ -646,29 +655,44 @@
                 wrapper.appendChild(role);
 
                 if (canManage) {
-                    const select = document.createElement('select');
-                    select.innerHTML = '<option value="">Select a user</option>';
-                    availableUsers.forEach((user) => {
-                        const option = document.createElement('option');
-                        option.value = user.id;
-                        const displayName = (user.first_name || user.last_name)
-                            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                            : user.username;
-                        option.textContent = user.role ? `${displayName} • ${user.role}` : displayName;
-                        if (String(assignment.user_id || '') === String(user.id)) {
-                            option.selected = true;
-                        }
-                        select.appendChild(option);
-                    });
-                    select.addEventListener('change', (event) => {
-                        state.assignments[index].user_id = event.target.value;
-                        syncHiddenInputs();
-                    });
+                    const displayName = (assignment.first_name || assignment.last_name)
+                        ? `${assignment.first_name || ''} ${assignment.last_name || ''}`.trim()
+                        : assignment.username || 'Unassigned';
+                    const isLockedAssignment = Boolean(assignment.user_id) && Boolean(assignment.musicians_id) && assignment.accepted !== 0;
 
-                    // Status badge
-                    const badge = document.createElement('span');
-                    badge.className = 'status-badge ' + (assignment.accepted === 1 ? 'badge-accepted' : (assignment.accepted === null || assignment.accepted == null ? 'badge-pending' : ''));
-                    badge.textContent = assignment.accepted === 1 ? 'Accepted' : 'Pending';
+                    if (isLockedAssignment) {
+                        const person = document.createElement('div');
+                        person.className = 'assignment-person locked';
+                        person.textContent = displayName;
+                        wrapper.appendChild(person);
+                    } else {
+                        const select = document.createElement('select');
+                        select.innerHTML = '<option value="">Select a user</option>';
+                        availableUsers.forEach((user) => {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            const optionDisplayName = (user.first_name || user.last_name)
+                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                : user.username;
+                            option.textContent = user.role ? `${optionDisplayName} • ${user.role}` : optionDisplayName;
+                            if (String(assignment.user_id || '') === String(user.id)) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                        select.addEventListener('change', (event) => {
+                            state.assignments[index].user_id = event.target.value;
+                            syncHiddenInputs();
+                        });
+                        wrapper.appendChild(select);
+                    }
+
+                    if (assignment.user_id) {
+                        const badge = document.createElement('span');
+                        badge.className = 'status-badge ' + (assignment.accepted === 1 ? 'badge-accepted' : 'badge-pending');
+                        badge.textContent = assignment.accepted === 1 ? 'Accepted' : 'Pending';
+                        wrapper.appendChild(badge);
+                    }
 
                     const remove = document.createElement('button');
                     remove.type = 'button';
@@ -678,8 +702,6 @@
                         renderAssignments();
                     });
 
-                    wrapper.appendChild(select);
-                    wrapper.appendChild(badge);
                     wrapper.appendChild(remove);
                 } else {
                     const displayName = (assignment.first_name || assignment.last_name)

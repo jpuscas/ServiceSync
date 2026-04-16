@@ -72,9 +72,25 @@
 
         .hero-links {
             display: flex;
-            gap: 14px;
+            gap: 10px;
             flex-wrap: wrap;
             align-items: center;
+        }
+
+        .hero-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--brand-deep);
+            border: 1px solid rgba(15, 118, 110, 0.18);
+            box-shadow: 0 8px 20px rgba(27, 36, 48, 0.08);
+        }
+
+        .hero-links a:hover {
+            background: rgba(15, 118, 110, 0.18);
         }
 
         .session-bar {
@@ -86,11 +102,22 @@
             flex-wrap: wrap;
         }
 
+        .session-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .session-bar form {
             margin: 0;
         }
 
+        .session-link,
         .session-bar button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             border: none;
             border-radius: 999px;
             padding: 10px 14px;
@@ -99,6 +126,9 @@
             font: inherit;
             font-weight: 700;
             cursor: pointer;
+            text-decoration: none;
+            border: 1px solid rgba(15, 118, 110, 0.18);
+            box-shadow: 0 8px 20px rgba(27, 36, 48, 0.08);
         }
 
         .alert {
@@ -357,19 +387,17 @@
     <div class="page">
         <div class="session-bar">
             <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
-            <form method="POST" action="/logout">
-                <button type="submit">Logout</button>
-            </form>
+            <div class="session-nav">
+                <a href="/" class="session-link">Home</a>
+                <a href="/services" class="session-link">View Services</a>
+                <a href="/my-requests" class="session-link">My Requests</a>
+            </div>
         </div>
 
         <div class="hero">
             <div>
                 <h1>Create Worship Service</h1>
                 <p>Build the team, set the date, and add songs in one place. Each role button creates another slot, so you can schedule multiple singers, guitarists, or any other role you need.</p>
-            </div>
-            <div class="hero-links">
-                <a href="/">Home</a>
-                <a href="/services">View Services</a>
             </div>
         </div>
 

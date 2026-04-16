@@ -1,10 +1,10 @@
 import sqlite3
-from features.users.users_model import create_user
+from features.users.users_model import create_user, get_username_by_email
 from features.users.login_logic import login_user
 from features.users.user_verification import generate_verification_token, set_verification_code
 
 
-def register_user(cursor, username: str, email: str, password: str, org_id: str = 'default', first_name: str = None,last_name: str = None):
+def register_user(cursor, username: str, email: str, password: str, org_id=None, first_name: str = None,last_name: str = None):
     username = (username or "").strip()
     email = (email or "").strip().lower()
     password = password or ""
@@ -14,9 +14,7 @@ def register_user(cursor, username: str, email: str, password: str, org_id: str 
     if not username or not email or not password:
         return {"success": False, "message": "Enter a username, email, and password."}
 
-    cursor.execute("SELECT username FROM users WHERE email = ? AND org_id = ?", (email, org_id))
-    row = cursor.fetchone()
-    existing_username = row['username'] if row else None
+    existing_username = get_username_by_email(cursor, email)
 
     if existing_username:
         login_result = login_user(cursor, existing_username, password, org_id)

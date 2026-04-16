@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization</title>
+    <style>
+        :root {
+            --ink: #1f2937;
+            --muted: #64748b;
+            --line: rgba(31, 41, 55, 0.12);
+            --card: rgba(255, 255, 255, 0.86);
+            --brand: #14532d;
+            --danger: #b91c1c;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(20, 83, 45, 0.14), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.16), transparent 30%),
+                linear-gradient(135deg, #f7f1e5 0%, #e8efe8 100%);
+        }
+
+        .page {
+            width: min(980px, calc(100% - 26px));
+            margin: 13px auto;
+            padding: 18px;
+        }
+
+        .panel {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            margin-bottom: 18px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .topbar a {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: var(--brand);
+            color: white;
+            font-weight: 700;
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+
+        .alert {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(20, 83, 45, 0.12);
+            color: var(--brand);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        input[type="search"], button, .role-pill {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            font: inherit;
+        }
+
+        button {
+            margin-top: 10px;
+            border: none;
+            background: linear-gradient(135deg, var(--brand), #166534);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+        }
+
+        .empty {
+            padding: 18px;
+            text-align: center;
+            border-radius: 18px;
+            border: 1px dashed rgba(31, 41, 55, 0.2);
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.58);
+        }
+
+        .member-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .member-card {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 1fr;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .member-name {
+            font-weight: 700;
+        }
+
+        .member-subtle {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .role-pill {
+            text-align: center;
+            background: rgba(20, 83, 45, 0.08);
+            border: 1px solid rgba(20, 83, 45, 0.18);
+            font-weight: 700;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .actions form {
+            flex: 1 1 150px;
+        }
+
+        .self-note {
+            color: var(--muted);
+            font-style: italic;
+            text-align: right;
+        }
+
+        @media (max-width: 760px) {
+            .member-card {
+                grid-template-columns: 1fr;
+            }
+
+            .self-note {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1 style="margin:0 0 4px;">Organization</h1>
+                <p style="margin:0; color:#64748b;">Search by username, invite people, and manage members in your organization.</p>
+            </div>
+            <div class="topbar-nav">
+                <a href="/">Home</a>
+                <a href="/my-requests">My Requests</a>
+                <a href="/services">Services</a>
+            </div>
+        </div>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        <div class="panel">
+            <p><strong>Current organization:</strong> {{ current_org }}</p>
+            <form method="POST" action="/organization-requests/send">
+                <label for="recipient-username">Search by username</label>
+                <input id="recipient-username" type="search" name="recipient_username" list="candidate-usernames" placeholder="Type a username" required>
+                <datalist id="candidate-usernames">
+                    {% for user in candidate_users %}
+                        <option value="{{ user.username }}">{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% endif %}</option>
+                    {% endfor %}
+                </datalist>
+                <button type="submit">Send Organization Request</button>
+            </form>
+            {% if not candidate_users %}
+                <div class="empty" style="margin-top:14px;">Everyone currently available already belongs to this organization.</div>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0;">People in Your Organization</h2>
+            {% if organization_members %}
+                <div class="member-list">
+                    {% for user in organization_members %}
+                        <div class="member-card">
+                            <div>
+                                <div class="member-name">{{ user.username }}</div>
+                                <div class="member-subtle">{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% else %}No name added yet{% endif %}</div>
+                            </div>
+                            <div class="role-pill">{{ user.role|title }}</div>
+                            {% if user.is_current_user %}
+                                <div class="self-note">You</div>
+                            {% else %}
+                                <div class="actions">
+                                    {% if user.role|lower == 'leader' %}
+                                        <form method="POST" action="/organization/members/{{ user.id }}/role">
+                                            <input type="hidden" name="role" value="member">
+                                            <button type="submit">Demote to Member</button>
+                                        </form>
+                                    {% else %}
+                                        <form method="POST" action="/organization/members/{{ user.id }}/role">
+                                            <input type="hidden" name="role" value="leader">
+                                            <button type="submit">Promote to Leader</button>
+                                        </form>
+                                    {% endif %}
+                                    <form method="POST" action="/organization/members/{{ user.id }}/remove">
+                                        <button type="submit" class="danger">Remove from Organization</button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty">No members are currently attached to this organization.</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

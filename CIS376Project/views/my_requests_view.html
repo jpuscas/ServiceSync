@@ -205,14 +205,14 @@
         <div class="topbar">
             <div>
                 <h1>My Requests</h1>
-                <p>Services you have been requested to join.</p>
+                <p>Service and organization requests waiting for your response.</p>
             </div>
             <div class="topbar-meta">
                 <a href="/">Home</a>
                 <a href="/services">Services</a>
-                <form method="POST" action="/logout">
-                    <button type="submit" class="logout-btn">Logout</button>
-                </form>
+                {% if can_manage %}
+                    <a href="/organization">Organization</a>
+                {% endif %}
             </div>
         </div>
 
@@ -225,6 +225,30 @@
         {% set pending  = requests | selectattr('accepted', 'equalto', none)  | list %}
         {% set declined = requests | selectattr('accepted', 'equalto', 0)     | list %}
         {% set accepted = requests | selectattr('accepted', 'equalto', 1)     | list %}
+        {% set pending_org_requests = organization_requests | selectattr('accepted', 'equalto', none) | list %}
+
+        <div class="section-title">Organization Requests ({{ pending_org_requests | length }})</div>
+        <div class="requests-list">
+            {% for req in pending_org_requests %}
+                <div class="request-card">
+                    <div class="request-info">
+                        <div class="role">Join Organization</div>
+                        <div class="meta">{{ req.org_name }} &bull; Requested by {{ req.sender_username }}</div>
+                    </div>
+                    <div class="request-actions">
+                        <span class="status-badge badge-pending">Pending</span>
+                        <form method="POST" action="/organization-requests/{{ req.request_id }}/accept">
+                            <button type="submit" class="btn-accept">Accept</button>
+                        </form>
+                        <form method="POST" action="/organization-requests/{{ req.request_id }}/decline">
+                            <button type="submit" class="btn-decline">Decline</button>
+                        </form>
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty">No pending organization requests.</div>
+            {% endfor %}
+        </div>
 
         <!-- Pending Requests -->
         <div class="section-title">Pending Requests ({{ pending | length }})</div>
@@ -233,7 +257,7 @@
                 <div class="request-card">
                     <div class="request-info">
                         <div class="role">{{ req.instrument }}</div>
-                        <div class="meta">{{ req.service_date }} &bull; {{ req.service_time }}</div>
+                        <div class="meta">{{ req.org_name }} &bull; {{ req.service_date }} &bull; {{ req.service_time }}</div>
                     </div>
                     <div class="request-actions">
                         <span class="status-badge badge-pending">Pending</span>
