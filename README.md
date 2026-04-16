@@ -93,7 +93,7 @@ CIS-376-Project/
 ### 1. Clone the repository
 
 ```powershell
-git clone <your-repository-url>
+git clone <https://github.com/jnorman42/CIS-376-Project.git>
 cd CIS-376-Project
 ```
 
