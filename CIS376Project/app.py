@@ -1,7 +1,8 @@
+import io
 import json
 from functools import wraps
 
-from flask import Flask, render_template, request, jsonify, session, redirect
+from flask import Flask, render_template, request, jsonify, session, redirect, send_file
 from database.connection import get_connection
 from database.schema import create_database
 from features.invitations.invitations_model import accept_invitation, create_organization_request, decline_invitation, delete_organization_requests_for_user_org, get_invitation_by_musicians_id, get_invitations_by_user, get_organization_request_by_id, get_organization_requests_by_user, update_organization_request_status
@@ -1038,7 +1039,6 @@ def get_chords_pdf(song_id):
     row = cursor.fetchone()
     db.close()
     if row and row['chords_pdf']:
-        from flask import send_file, io
         return send_file(io.BytesIO(row['chords_pdf']), mimetype='application/pdf', as_attachment=True, download_name=f'song_{song_id}_chords.pdf')
     else:
         return "PDF not found", 404
@@ -1051,7 +1051,6 @@ def get_lyrics_pdf(song_id):
     row = cursor.fetchone()
     db.close()
     if row and row['lyrics_pdf']:
-        from flask import send_file, io
         return send_file(io.BytesIO(row['lyrics_pdf']), mimetype='application/pdf', as_attachment=True, download_name=f'song_{song_id}_lyrics.pdf')
     else:
         return "PDF not found", 404

@@ -93,7 +93,7 @@ CIS-376-Project/
 ### 1. Clone the repository
 
 ```powershell
-git clone <your-repository-url>
+git clone <https://github.com/jnorman42/CIS-376-Project.git>
 cd CIS-376-Project
 ```
 
@@ -164,6 +164,9 @@ To run the full automated test suite:
 cd .\CIS376Project
 python -m pytest -q
 ```
+Current Test Coverage:
+
+<img width="575" height="416" alt="Screenshot 2026-04-16 124836" src="https://github.com/user-attachments/assets/6f536da9-3dd0-41a3-8961-d82d19c6d350" />
 
 ---
 
