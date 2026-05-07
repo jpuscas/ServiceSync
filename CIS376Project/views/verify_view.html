@@ -89,7 +89,9 @@
     <h2>Verify Account</h2>
 
     {% if token %}
-        <p style="text-align: center; color: #4e73df; font-weight: bold;">For demo purposes, your verification token is: {{ token }}</p>
+        <p style="text-align: center; color: #4e73df; font-weight: bold;">
+            A verification token has been sent to your email.
+        </p>
     {% else %}
         <p style="text-align: center; color: #666;">Please check your email for the verification token.</p>
     {% endif %}

@@ -1,9 +1,9 @@
 import secrets
 
+
 def generate_verification_token():
     return secrets.token_urlsafe(32)
 
-print(generate_verification_token())
 
 def set_verification_code(cursor, user_id: int, token: str):
     cursor.execute('''
@@ -11,6 +11,7 @@ def set_verification_code(cursor, user_id: int, token: str):
     SET verification_token = ?
     WHERE id = ?
     ''', (token, user_id))
+
 
 def verify_user(cursor, token: str):
     cursor.execute('''
@@ -31,5 +32,3 @@ def verify_user(cursor, token: str):
         return True
 
     return False
-
-

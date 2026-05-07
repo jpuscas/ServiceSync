@@ -3,6 +3,8 @@ import json
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect, send_file
+
+from features.SMS.TextNotif import send_text
 from database.connection import get_connection
 from database.schema import create_database
 from features.invitations.invitations_model import accept_invitation, create_organization_request, decline_invitation, delete_organization_requests_for_user_org, get_invitation_by_musicians_id, get_invitations_by_user, get_organization_request_by_id, get_organization_requests_by_user, update_organization_request_status
@@ -26,9 +28,12 @@ from features.songs.songs_model import list_songs, get_song_by_id, update_song, 
 from features.users.login_logic import login_user
 from features.users.register_logic import register_user
 from features.users.role_logic import has_role
-from features.users.user_verification import verify_user
-from features.users.users_model import add_user_to_org, get_primary_org, get_user_by_id, get_user_by_username, get_user_org_memberships, list_users, remove_user_from_org, set_role, update_password, update_username, update_phone, update_name, update_email, user_belongs_to_org
+from features.users.user_verification import verify_user, generate_verification_token, set_verification_code
+from features.email.EmailNotif import send_email
+from features.users.users_model import add_user_to_org, get_primary_org, update_carrier, get_user_by_id, get_user_by_username, get_user_org_memberships, list_users, remove_user_from_org, set_role, update_password, update_username, update_phone, update_name, update_email, user_belongs_to_org
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__, template_folder='views')
 app.secret_key = 'dev_secret_key'
 
@@ -343,13 +348,24 @@ def register_route():
         db, cursor = get_connection()
         result = register_user(cursor, username, email, password, None, first_name, last_name)
         if result['success']:
-            db.commit()
-            session['verification_token'] = result['token']
-            return redirect('/verify')
-        db.close()
-        
-        return render_template('register_view.html', message=result['message'])
+            token = result['token']
 
+            try:
+                send_email(
+                    email,
+                    f"Welcome to ServiceSync!\n\nYour verification token is:\n{token}\n\nEnter this token to activate your account."
+                )
+            except Exception as email_error:
+                db.close()
+                return render_template('register_view.html',
+                                       message=f"Account created, but email failed to send: {email_error}")
+
+            db.commit()
+            session['verification_token'] = token
+            return redirect('/verify')
+
+        db.close()
+        return render_template('register_view.html', message=result['message'])
 @app.route('/verify', methods=['GET', 'POST'])
 def verify_route():
     if request.method == 'GET':
@@ -746,6 +762,15 @@ def send_organization_request_route():
 
     create_organization_request(cursor, current_user['id'], recipient['id'], current_org)
     db.commit()
+    if recipient.get('phone') and recipient.get('carrier'):
+        try:
+            send_text(
+                recipient['phone'],
+                recipient['carrier'],
+                f"You have a new organization request to join {current_org}."
+            )
+        except Exception as e:
+            print(f"Failed to send organization text notification: {e}")
     db.close()
     session['message'] = f'Organization request sent to {recipient_username}.'
     return redirect('/organization')
@@ -974,6 +999,18 @@ def profile_update_phone():
     db.commit()
     db.close()
     session['message'] = 'Phone number updated.'
+    return redirect('/profile')
+
+@app.route('/profile/carrier', methods=['POST'])
+@require_login
+def profile_update_carrier():
+    carrier = (request.form.get('carrier') or '').strip()
+    current_user = get_current_user()
+    db, cursor = get_connection()
+    update_carrier(cursor, current_user['id'], carrier or None)
+    db.commit()
+    db.close()
+    session['message'] = 'Carrier updated.'
     return redirect('/profile')
 
 @app.route('/song/<int:song_id>/edit', methods=['POST'])

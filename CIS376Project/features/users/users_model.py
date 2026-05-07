@@ -104,6 +104,7 @@ def create_users_table(cursor):
         last_name TEXT,
         email TEXT NOT NULL UNIQUE,
         phone TEXT,
+        carrier TEXT,
         
         password TEXT NOT NULL,
         
@@ -244,6 +245,13 @@ def update_phone(cursor, user_id: int, phone: str):
     SET phone = ?
     WHERE id = ?
     ''', (phone, user_id))
+
+def update_carrier(cursor, user_id: int, carrier: str):
+    cursor.execute('''
+    UPDATE users
+    SET carrier = ?
+    WHERE id = ?
+    ''', (carrier, user_id))
 
 def set_role(cursor, user_id: int, new_role: str, org_id: str = None):
     if org_id is not None:

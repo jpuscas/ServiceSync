@@ -1,0 +1,49 @@
+import os
+import smtplib
+from email.message import EmailMessage
+
+
+CARRIER_SMS_DOMAINS = {
+    "verizon": "vtext.com",
+    "att": "txt.att.net",
+    "at&t": "txt.att.net",
+    "tmobile": "tmomail.net",
+    "t-mobile": "tmomail.net",
+    "sprint": "messaging.sprintpcs.com",
+    "boost": "sms.myboostmobile.com",
+    "cricket": "sms.cricketwireless.net",
+    "xfinity": "vtext.com",  # sometimes differs; verify if needed
+}
+
+
+def send_text(phone_number, carrier, message):
+    smtp_host = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.getenv("MAIL_PORT", "587"))
+    smtp_username = os.getenv("MAIL_USERNAME")
+    smtp_password = os.getenv("MAIL_PASSWORD")
+    default_sender = os.getenv("MAIL_DEFAULT_SENDER", smtp_username)
+
+    if not phone_number:
+        raise ValueError("Phone number is required.")
+    if not carrier:
+        raise ValueError("Carrier is required.")
+    if not message:
+        raise ValueError("Message is required.")
+
+    carrier_key = carrier.strip().lower()
+    domain = CARRIER_SMS_DOMAINS.get(carrier_key)
+    if not domain:
+        raise ValueError(f"Unsupported carrier: {carrier}")
+
+    recipient = f"{phone_number}@{domain}"
+
+    email = EmailMessage()
+    email["Subject"] = ""  # SMS gateways usually ignore subject
+    email["From"] = default_sender
+    email["To"] = recipient
+    email.set_content(message)
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(email)

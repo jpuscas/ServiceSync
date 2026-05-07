@@ -363,6 +363,38 @@
             </div>
         </form>
 
+        <div class="info-row">
+            <span class="info-label">Carrier</span>
+            <span class="info-value" id="carrier-display">
+                {% if user['carrier'] %}
+                    {{ user['carrier']|title }}
+                {% else %}
+                    <em style="color: var(--muted);">Not set</em>
+                {% endif %}
+            </span>
+            {% if user['carrier'] %}
+                <button class="btn-edit" onclick="toggleEdit('carrier')">Change</button>
+            {% else %}
+                <button class="btn-add-phone" onclick="toggleEdit('carrier')">+ Add Carrier</button>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="/profile/carrier" class="edit-form" id="carrier-form">
+            <select name="carrier" required>
+                <option value="">Select carrier</option>
+                <option value="verizon" {% if user['carrier'] == 'verizon' %}selected{% endif %}>Verizon</option>
+                <option value="att" {% if user['carrier'] == 'att' %}selected{% endif %}>AT&amp;T</option>
+                <option value="tmobile" {% if user['carrier'] == 'tmobile' %}selected{% endif %}>T-Mobile</option>
+                <option value="sprint" {% if user['carrier'] == 'sprint' %}selected{% endif %}>Sprint</option>
+                <option value="boost" {% if user['carrier'] == 'boost' %}selected{% endif %}>Boost Mobile</option>
+                <option value="cricket" {% if user['carrier'] == 'cricket' %}selected{% endif %}>Cricket</option>
+            </select>
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="toggleEdit('carrier')">Cancel</button>
+            </div>
+        </form>
+
         <!-- Role -->
         <div class="info-row">
             <span class="info-label">Role</span>

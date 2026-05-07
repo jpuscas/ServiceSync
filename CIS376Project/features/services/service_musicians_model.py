@@ -107,29 +107,55 @@ def clear_musicians_for_service(cursor, service_id: int, org_id: str = 'default'
     WHERE service_id = ? AND org_id = ?
     ''', (service_id, org_id))
 
-def smart_save_musicians(cursor, service_id: int, assignments: list, org_id: str):
+def smart_save_musicians(cursor, service_id, assignments, org_id):
     """Sync musicians for a service while preserving accepted/denied responses."""
     cursor.execute(
         'SELECT musicians_id, user_id, instrument, accepted FROM service_musicians WHERE service_id = ? AND org_id = ?',
         (service_id, org_id)
     )
-    existing = {(row['user_id'], row['instrument']): dict(row) for row in cursor.fetchall()}
+    existing_rows = [dict(row) for row in cursor.fetchall()]
+    existing_by_user = {row['user_id']: row for row in existing_rows}
 
-    new_set = {(int(a['user_id']), a['role']): a for a in assignments}
+    new_user_ids = set()
 
-    # Delete active rows (NULL or accepted=1) that are no longer in new assignments
-    for (uid, instr), row in list(existing.items()):
-        if row['accepted'] != 0:  # NULL or 1 are manageable
-            if (uid, instr) not in new_set:
-                delete_invitations_for_musician(cursor, row['musicians_id'], org_id)
-                cursor.execute('DELETE FROM service_musicians WHERE musicians_id = ? AND org_id = ?', (row['musicians_id'], org_id))
+    for assignment in assignments:
+        user_id_raw = assignment.get('user_id')
+        role_name = (assignment.get('role') or '').strip()
 
-    # Insert new rows that don't already exist
-    for (uid, instr), assignment in new_set.items():
-        if (uid, instr) not in existing:
+        if user_id_raw in (None, '') or not role_name:
+            continue
+
+        user_id = int(user_id_raw)
+        new_user_ids.add(user_id)
+
+        if user_id in existing_by_user:
+            existing_row = existing_by_user[user_id]
+
             cursor.execute(
-                'INSERT INTO service_musicians (service_id, user_id, instrument, org_id) VALUES (?, ?, ?, ?)',
-                (service_id, uid, instr, org_id)
+                '''
+                UPDATE service_musicians
+                SET instrument = ?
+                WHERE musicians_id = ? AND org_id = ?
+                ''',
+                (role_name, existing_row['musicians_id'], org_id)
+            )
+        else:
+            cursor.execute(
+                '''
+                INSERT INTO service_musicians (service_id, user_id, instrument, org_id)
+                VALUES (?, ?, ?, ?)
+                ''',
+                (service_id, user_id, role_name, org_id)
+            )
+
+    # Remove rows that are no longer in the assignment list,
+    # but preserve declined rows unless you intentionally want them removed.
+    for row in existing_rows:
+        if row['user_id'] not in new_user_ids and row['accepted'] != 0:
+            delete_invitations_for_musician(cursor, row['musicians_id'], org_id)
+            cursor.execute(
+                'DELETE FROM service_musicians WHERE musicians_id = ? AND org_id = ?',
+                (row['musicians_id'], org_id)
             )
 
 def get_requests_for_user(cursor, user_id: int, org_id: str):

@@ -1,4 +1,5 @@
 CIS376Project/project.db
+.env
 **/__pycache__/
 *.pyc
 *.pyo

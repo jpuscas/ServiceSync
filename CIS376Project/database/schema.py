@@ -51,6 +51,7 @@ def _migrate_users_table_for_multi_org(cursor):
         last_name TEXT,
         email TEXT NOT NULL UNIQUE,
         phone TEXT,
+        carrier TEXT,
         password TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'member',
         org_id TEXT DEFAULT NULL,
@@ -62,7 +63,7 @@ def _migrate_users_table_for_multi_org(cursor):
     ''')
     cursor.execute('''
     INSERT OR IGNORE INTO users_multi_org_migration (id, username, first_name, last_name, email, phone, password, role, org_id, is_verified, verification_token, created_at, updated_at)
-    SELECT id, username, first_name, last_name, email, phone, password, role, org_id, is_verified, verification_token, created_at, updated_at
+    SELECT id, username, first_name, last_name, email, phone, carrier, password, role, org_id, is_verified, verification_token, created_at, updated_at
     FROM users
     ''')
     cursor.execute('DROP TABLE users')
@@ -98,6 +99,7 @@ def create_database(cursor):
     create_users_table(cursor)
     _migrate_users_table_for_multi_org(cursor)
     _ensure_column(cursor, 'users', 'org_id', "org_id TEXT DEFAULT NULL")
+    _ensure_column(cursor, 'users', 'carrier', "carrier TEXT")
     _migrate_existing_user_org_memberships(cursor)
     
     create_songs_table(cursor)
