@@ -111,18 +111,18 @@ def test_update_musician_ignores_wrong_org():
 
     create_user(cursor, 'user1', 'user1@gmail.com', 'pass', org_id='org-1')
     create_user(cursor, 'user2', 'user2@gmail.com', 'pass', org_id='org-2')
-    create_service(cursor, 'Sunday Worship', 'Worship', '3/8/2026', '9:00 AM', 1, org_id='org-1')
-    create_service(cursor, 'City Night', 'Youth', '3/8/2026', '7:00 PM', 2, org_id='org-2')
+    create_service(cursor, 'Sunday Worship', 'Worship', '3/8/2026', '9:00 AM', 1, org_name='org-1')
+    create_service(cursor, 'City Night', 'Youth', '3/8/2026', '7:00 PM', 2, org_name='org-2')
     db.commit()
 
-    assign_musician(cursor, 1, 1, 'Guitar', org_id='org-1')
+    assign_musician(cursor, 1, 1, 'Guitar', org_name='org-1')
     db.commit()
 
-    musician = update_musician(cursor, 1, 'Piano', org_id='org-2')
+    musician = update_musician(cursor, 1, 'Piano', org_name='org-2')
     db.commit()
 
     assert musician == []
-    cursor.execute('SELECT instrument FROM service_musicians WHERE musicians_id = 1')
+    cursor.execute('SELECT instrument FROM org_1_service_musicians WHERE musicians_id = 1')
     row = cursor.fetchone()
     assert row['instrument'] == 'Guitar'
 
@@ -138,7 +138,7 @@ def test_delete_musician_ignores_wrong_org():
     assign_musician(cursor, 1, 1, 'Guitar')
     db.commit()
 
-    delete_musician(cursor, 1, org_id='org-2')
+    delete_musician(cursor, 1, org_name='org-2')
     db.commit()
 
     row = get_musicians_assignment(cursor, 1)

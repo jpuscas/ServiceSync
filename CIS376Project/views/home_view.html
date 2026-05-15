@@ -129,7 +129,7 @@
     <div class="shell">
         <div class="topbar">
             {% if current_user %}
-                <div class="pill"><a href="/profile">{{ current_user.username }} • {{ current_user.role|title }}</a></div>
+                <div class="pill"><a href="/profile">{{ current_user.username }}</a></div>
                 <div class="pill">
                     <form method="POST" action="/logout">
                         <button type="submit">Logout</button>
@@ -164,15 +164,15 @@
                     <strong>My Requests</strong>
                     <span>View services you have been requested to join and accept or decline each one.</span>
                 </a>
+                <a class="card" href="/organization">
+                    <strong>Organization</strong>
+                    <span>View your members and create a new organization with the organization creation password.</span>
+                </a>
             {% endif %}
             {% if can_manage %}
                 <a class="card" href="/services/new">
                     <strong>Create Service</strong>
                     <span>Add roles, assign people, choose songs, and set the date and time in one page.</span>
-                </a>
-                <a class="card" href="/organization">
-                    <strong>Organization</strong>
-                    <span>Invite users, promote or demote members, and manage who belongs to your organization.</span>
                 </a>
                 <a class="card" href="/add_song">
                     <strong>Add Song</strong>

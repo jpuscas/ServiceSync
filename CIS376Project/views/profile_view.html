@@ -149,6 +149,13 @@
             color: var(--brand);
         }
 
+        .org-list {
+            margin: 0;
+            padding-left: 18px;
+            display: grid;
+            gap: 6px;
+        }
+
         /* Edit forms (hidden by default) */
         .edit-form {
             display: none;
@@ -395,11 +402,19 @@
             </div>
         </form>
 
-        <!-- Role -->
+        <!-- Organizations -->
         <div class="info-row">
-            <span class="info-label">Role</span>
+            <span class="info-label">Organizations</span>
             <span class="info-value">
-                <span class="role-badge">{{ user['role']|title }}</span>
+                {% if org_memberships %}
+                    <ul class="org-list">
+                        {% for org in org_memberships %}
+                            <li>{{ org.org_name }} <span class="role-badge">{{ org.role|title }}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <em style="color: var(--muted);">No organizations yet</em>
+                {% endif %}
             </span>
         </div>
     </div>

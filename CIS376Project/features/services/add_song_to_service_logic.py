@@ -1,14 +1,14 @@
 from database.connection import get_connection
 from features.services.service_songs_model import add_song_to_service, clear_songs_for_service
 
-def add_song_to_setlist(service_id, song_id, p_key, p_tempo, order, org_id, cursor=None):
+def add_song_to_setlist(service_id, song_id, p_key, p_tempo, order, org_name, cursor=None):
     managed_connection = cursor is None
     db = None
     if managed_connection:
         db, cursor = get_connection()
 
     try:
-        new_id = add_song_to_service(cursor, service_id, song_id, p_key, p_tempo, order, org_id)
+        new_id = add_song_to_service(cursor, service_id, song_id, p_key, p_tempo, order, org_name)
         if managed_connection:
             db.commit()
 
@@ -30,17 +30,17 @@ def add_song_to_setlist(service_id, song_id, p_key, p_tempo, order, org_id, curs
             db.close()
 
 
-def replace_service_setlist(service_id, song_ids, org_id, cursor=None):
+def replace_service_setlist(service_id, song_ids, org_name, cursor=None):
     managed_connection = cursor is None
     db = None
     if managed_connection:
         db, cursor = get_connection()
 
     try:
-        clear_songs_for_service(cursor, service_id, org_id)
+        clear_songs_for_service(cursor, service_id, org_name)
         created_ids = []
         for index, song_id in enumerate(song_ids, start=1):
-            result = add_song_to_setlist(service_id, song_id, None, None, index, org_id, cursor=cursor)
+            result = add_song_to_setlist(service_id, song_id, None, None, index, org_name, cursor=cursor)
             if not result['success']:
                 return result
             created_ids.append(result['service_song_id'])

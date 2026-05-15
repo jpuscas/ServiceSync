@@ -1,11 +1,11 @@
 from database.connection import get_connection
 from features.songs.songs_model import create_song
 
-def add_new_song(title, artist, key, org_id, tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None):
+def add_new_song(title, artist, key, org_name, tempo=None, youtube_url=None, chords_pdf=None, lyrics_pdf=None):
     db, cursor = get_connection()
 
     try:
-        song_id = create_song(cursor, title, artist, key, tempo, youtube_url, chords_pdf, lyrics_pdf, org_id)
+        song_id = create_song(cursor, title, artist, key, tempo, youtube_url, chords_pdf, lyrics_pdf, org_name)
 
         db.commit()
 

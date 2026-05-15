@@ -83,7 +83,7 @@
             font-weight: 700;
         }
 
-        input[type="search"], button, .role-pill {
+        input[type="search"], input[type="password"], select, button, .role-pill {
             width: 100%;
             padding: 12px 14px;
             border-radius: 14px;
@@ -191,19 +191,25 @@
         {% endif %}
 
         <div class="panel">
-            <p><strong>Current organization:</strong> {{ current_org }}</p>
-            <form method="POST" action="/organization-requests/send">
-                <label for="recipient-username">Search by username</label>
-                <input id="recipient-username" type="search" name="recipient_username" list="candidate-usernames" placeholder="Type a username" required>
-                <datalist id="candidate-usernames">
-                    {% for user in candidate_users %}
-                        <option value="{{ user.username }}">{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% endif %}</option>
-                    {% endfor %}
-                </datalist>
-                <button type="submit">Send Organization Request</button>
-            </form>
-            {% if not candidate_users %}
-                <div class="empty" style="margin-top:14px;">Everyone currently available already belongs to this organization.</div>
+            <p><strong>Current organization:</strong> {{ current_org or 'None selected' }}</p>
+            {% if can_manage and current_org %}
+                <form method="POST" action="/organization-requests/send">
+                    <label for="recipient-username">Search by username</label>
+                    <input id="recipient-username" type="search" name="recipient_username" list="candidate-usernames" placeholder="Type a username" required>
+                    <datalist id="candidate-usernames">
+                        {% for user in candidate_users %}
+                            <option value="{{ user.username }}">{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% endif %}</option>
+                        {% endfor %}
+                    </datalist>
+                    <button type="submit">Send Organization Request</button>
+                </form>
+                {% if not candidate_users %}
+                    <div class="empty" style="margin-top:14px;">Everyone currently available already belongs to this organization.</div>
+                {% endif %}
+            {% elif current_org %}
+                <div class="empty">Only leaders can send organization requests.</div>
+            {% else %}
+                <div class="empty">Create or join an organization to start inviting people.</div>
             {% endif %}
         </div>
 
@@ -222,20 +228,24 @@
                                 <div class="self-note">You</div>
                             {% else %}
                                 <div class="actions">
-                                    {% if user.role|lower == 'leader' %}
-                                        <form method="POST" action="/organization/members/{{ user.id }}/role">
-                                            <input type="hidden" name="role" value="member">
-                                            <button type="submit">Demote to Member</button>
+                                    {% if can_manage %}
+                                        {% if user.role|lower == 'leader' %}
+                                            <form method="POST" action="/organization/members/{{ user.id }}/role">
+                                                <input type="hidden" name="role" value="member">
+                                                <button type="submit">Demote to Member</button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="/organization/members/{{ user.id }}/role">
+                                                <input type="hidden" name="role" value="leader">
+                                                <button type="submit">Promote to Leader</button>
+                                            </form>
+                                        {% endif %}
+                                        <form method="POST" action="/organization/members/{{ user.id }}/remove">
+                                            <button type="submit" class="danger">Remove from Organization</button>
                                         </form>
                                     {% else %}
-                                        <form method="POST" action="/organization/members/{{ user.id }}/role">
-                                            <input type="hidden" name="role" value="leader">
-                                            <button type="submit">Promote to Leader</button>
-                                        </form>
+                                        <div class="self-note">Leader-only actions</div>
                                     {% endif %}
-                                    <form method="POST" action="/organization/members/{{ user.id }}/remove">
-                                        <button type="submit" class="danger">Remove from Organization</button>
-                                    </form>
                                 </div>
                             {% endif %}
                         </div>
@@ -243,6 +253,47 @@
                 </div>
             {% else %}
                 <div class="empty">No members are currently attached to this organization.</div>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0;">Create Organization</h2>
+            <p style="margin-top:0; color:#64748b;">Use the organization creation password to start a new organization. You will be added as a leader.</p>
+            <form method="POST" action="/organization/create">
+                <label for="org-name">Organization name</label>
+                <input id="org-name" type="search" name="org_name" placeholder="Enter organization name" required>
+                <label for="creation-password" style="margin-top:10px;">Organization creation password</label>
+                <input id="creation-password" type="password" name="creation_password" placeholder="Enter creation password" required>
+                <button type="submit">Create Organization</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0; color:#7f1d1d;">Delete Organization</h2>
+            {% if leader_orgs %}
+                <p style="margin-top:0; color:#7f1d1d;">This action permanently deletes the selected organization and all related services, songs, musicians, invitations, requests, and memberships.</p>
+                <p style="margin-top:0; color:#64748b;">Choose one of your leader organizations, then type that exact name five times to confirm.</p>
+                <form method="POST" action="/organization/delete">
+                    <label for="delete-org-name">Organization to delete</label>
+                    <select id="delete-org-name" name="delete_org_name" required>
+                        {% for org_name in leader_orgs %}
+                            <option value="{{ org_name }}" {% if current_org == org_name %}selected{% endif %}>{{ org_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <label for="confirm-name-1">Confirmation 1</label>
+                    <input id="confirm-name-1" type="search" name="confirm_name_1" placeholder="Type selected organization name" required>
+                    <label for="confirm-name-2" style="margin-top:10px;">Confirmation 2</label>
+                    <input id="confirm-name-2" type="search" name="confirm_name_2" placeholder="Type selected organization name" required>
+                    <label for="confirm-name-3" style="margin-top:10px;">Confirmation 3</label>
+                    <input id="confirm-name-3" type="search" name="confirm_name_3" placeholder="Type selected organization name" required>
+                    <label for="confirm-name-4" style="margin-top:10px;">Confirmation 4</label>
+                    <input id="confirm-name-4" type="search" name="confirm_name_4" placeholder="Type selected organization name" required>
+                    <label for="confirm-name-5" style="margin-top:10px;">Confirmation 5</label>
+                    <input id="confirm-name-5" type="search" name="confirm_name_5" placeholder="Type selected organization name" required>
+                    <button type="submit" class="danger">Delete Organization Permanently</button>
+                </form>
+            {% else %}
+                <div class="empty">You are not currently a leader in any organization.</div>
             {% endif %}
         </div>
     </div>

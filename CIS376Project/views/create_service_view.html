@@ -386,7 +386,7 @@
 <body>
     <div class="page">
         <div class="session-bar">
-            <div>{{ current_user.username }} • {{ current_user.role|title }}</div>
+            <div>{{ current_user.username }}</div>
             <div class="session-nav">
                 <a href="/" class="session-link">Home</a>
                 <a href="/services" class="session-link">View Services</a>
@@ -425,7 +425,7 @@
                         <label for="leader-id">Service Leader</label>
                         <select id="leader-id" name="leader_id">
                             <option value="">No leader selected</option>
-                            {% for user in users %}
+                            {% for user in leader_users %}
                                 {% if user.role and user.role|lower == 'leader' %}
                                     <option value="{{ user.id }}" {% if form_data.leader_id|string == user.id|string %}selected{% endif %}>{% if user.first_name or user.last_name %}{{ (user.first_name ~ ' ' ~ user.last_name).strip() }}{% else %}{{ user.username }}{% endif %}{% if user.role %} • {{ user.role }}{% endif %}</option>
                                 {% endif %}

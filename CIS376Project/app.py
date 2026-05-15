@@ -1,13 +1,15 @@
 import io
 import json
+import os
 from functools import wraps
+from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify, session, redirect, send_file
 
 from features.SMS.TextNotif import send_text
 from database.connection import get_connection
 from database.schema import create_database
-from features.invitations.invitations_model import accept_invitation, create_organization_request, decline_invitation, delete_organization_requests_for_user_org, get_invitation_by_musicians_id, get_invitations_by_user, get_organization_request_by_id, get_organization_requests_by_user, update_organization_request_status
+from features.invitations.invitations_model import accept_invitation, create_organization_request, decline_invitation, delete_invitation, delete_organization_request, delete_organization_requests_for_user_org, get_invitation_by_musicians_id, get_invitations_by_user, get_organization_request_by_id, get_organization_requests_by_user, update_organization_request_status
 from features.invitations.send_invitation_logic import send_service_invitation
 from features.services.add_song_to_service_logic import replace_service_setlist
 from features.services.assign_member_logic import save_members_for_service
@@ -30,12 +32,26 @@ from features.users.register_logic import register_user
 from features.users.role_logic import has_role
 from features.users.user_verification import verify_user, generate_verification_token, set_verification_code
 from features.email.EmailNotif import send_email
-from features.users.users_model import add_user_to_org, get_primary_org, update_carrier, get_user_by_id, get_user_by_username, get_user_org_memberships, list_users, remove_user_from_org, set_role, update_password, update_username, update_phone, update_name, update_email, user_belongs_to_org
+from features.users.users_model import add_user_to_org, get_primary_org, update_carrier, get_user_by_id, get_user_by_username, get_user_org_memberships, list_users, remove_user_from_org, update_password, update_username, update_phone, update_name, update_email, user_belongs_to_org
+from features.organizations.organizations_model import create_organization, delete_organization, get_org_member_role, get_user_org_memberships_with_roles, set_org_member_role
 from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__, template_folder='views')
 app.secret_key = 'dev_secret_key'
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ORG_CREATION_PASSWORD_FILE = PROJECT_ROOT / '.org_creation_password.txt'
+
+
+def get_org_creation_password():
+    env_value = os.getenv('ORG_CREATION_PASSWORD')
+    if env_value:
+        return env_value.strip()
+    try:
+        return ORG_CREATION_PASSWORD_FILE.read_text(encoding='utf-8').strip()
+    except Exception:
+        return ''
 
 SERVICE_ROLES = [
     'Singer',
@@ -54,7 +70,6 @@ def get_current_user():
 
     db, cursor = get_connection()
     user_row = get_user_by_id(cursor, user_id)
-    db.close()
 
     if user_row is None:
         session.clear()
@@ -64,17 +79,21 @@ def get_current_user():
     active_org = session.get('org_id')
     if active_org not in org_ids:
         active_org = org_ids[0] if org_ids else None
+    active_org_role = get_org_member_role(cursor, active_org, user_id) if active_org else None
+    db.close()
 
-    # Keep session fields in sync in case role/username changed in the database.
+    # Keep session fields in sync in case org-role/username changed in the database.
     session['username'] = user_row['username']
-    session['role'] = user_row['role']
+    session['role'] = active_org_role
+    session['org_role'] = active_org_role
     session['org_id'] = active_org
     session['org_ids'] = org_ids
 
     return {
         'id': user_id,
         'username': user_row['username'],
-        'role': user_row['role'],
+        'role': active_org_role,
+        'org_role': active_org_role,
         'org_id': active_org,
         'org_ids': org_ids,
     }
@@ -131,10 +150,10 @@ def serialize_user(user_row):
         'first_name': user_row['first_name'] or '',
         'last_name': user_row['last_name'] or '',
         'email': user_row['email'],
-        'role': user_row['role'],
+        'role': user_row['org_role'] if 'org_role' in user_row.keys() else user_row['role'] if 'role' in user_row.keys() else None,
     }
 
-def build_service_detail(cursor, service_row, org_id: int = 1):
+def build_service_detail(cursor, service_row, org_id='default'):
     if not service_row:
         return None
 
@@ -160,6 +179,45 @@ def normalize_song_ids(song_payload):
 def get_selected_songs_by_ids(all_songs, song_ids):
     song_lookup = {song['song_id']: song for song in all_songs}
     return [song_lookup[song_id] for song_id in song_ids if song_id in song_lookup]
+
+def notify_service_leader_about_response(cursor, service_id, org_id, responder_name, action_label):
+    service_row = get_service_by_id(cursor, service_id, org_id)
+    if not service_row or not service_row['leader_id']:
+        return
+
+    leader_row = get_user_by_id(cursor, service_row['leader_id'])
+    if not leader_row:
+        return
+
+    if action_label == 'dropped out of':
+        message = (
+            f"{responder_name} has dropped out of the service {service_row['service_name']} "
+            f"on {service_row['service_date']} at {service_row['service_time']}."
+        )
+    else:
+        message = (
+            f"{responder_name} has declined the request for the service {service_row['service_name']} "
+            f"on {service_row['service_date']} at {service_row['service_time']}."
+        )
+
+    try:
+        if leader_row['email']:
+            send_email(
+                leader_row['email'],
+                message,
+            )
+    except Exception:
+        pass
+
+    try:
+        if leader_row['phone'] and leader_row['carrier']:
+            send_text(
+                leader_row['phone'],
+                leader_row['carrier'],
+                message,
+            )
+    except Exception:
+        pass
 
 def parse_service_payload(form):
     service_date = (form.get('service_date') or '').strip()
@@ -222,7 +280,7 @@ def serialize_invitation_request(invitation_row):
         'service_date': invitation_row['service_date'],
         'service_time': invitation_row['service_time'],
         'service_name': invitation_row['service_name'],
-        'org_name': invitation_row['org_id'],
+        'org_name': invitation_row.get('org_name', ''),
     }
 
 
@@ -242,6 +300,7 @@ def serialize_organization_request(request_row):
     }
 
 def save_service_relations(cursor, service_id, assignments, song_ids, org_id: int = 1, sender_id=None):
+    sms_warnings = []
     if sender_id is not None:
         member_result = save_members_for_service(sender_id, service_id, assignments, org_id, cursor=cursor)
         if not member_result['success']:
@@ -253,19 +312,23 @@ def save_service_relations(cursor, service_id, assignments, song_ids, org_id: in
 
     if sender_id is not None:
         for assignment_row in get_musicians_for_service(cursor, service_id, org_id):
-            send_service_invitation(
+            invite_result = send_service_invitation(
                 sender_id,
                 service_id,
-                org_id=org_id,
+                org_name=org_id,
                 recipient_user_id=assignment_row['user_id'],
                 musicians_id=assignment_row['musicians_id'],
                 instrument=assignment_row['instrument'],
                 cursor=cursor,
             )
+            if invite_result.get('text_warning'):
+                sms_warnings.append(invite_result['text_warning'])
 
     songs_result = replace_service_setlist(service_id, song_ids, org_id, cursor=cursor)
     if not songs_result['success']:
         raise ValueError(songs_result['message'])
+
+    return sms_warnings
 
 def load_service_page_context(selected_service_id=None, filter_user_id=None, org_id: int = 1):
     if not org_id:
@@ -287,6 +350,9 @@ def load_service_page_context(selected_service_id=None, filter_user_id=None, org
 
     db.close()
     return users, songs, services, selected_service
+
+def get_org_leaders(users):
+    return [user for user in users if (user.get('role') or '').lower() == 'leader']
 
 @app.route('/')
 def home():
@@ -319,7 +385,8 @@ def login_route():
         if result['success']:
             session['user_id'] = result['user']['id']
             session['username'] = result['user']['username']
-            session['role'] = result['user']['role']
+            session['role'] = result['user'].get('org_role')
+            session['org_role'] = result['user'].get('org_role')
             session['org_id'] = result['user'].get('org_id')
             session['org_ids'] = result['user'].get('org_ids', [])
             session['message'] = f"Logged in as {result['user']['username']}."
@@ -349,19 +416,27 @@ def register_route():
         result = register_user(cursor, username, email, password, None, first_name, last_name)
         if result['success']:
             token = result['token']
-
+            db.commit()
+            session['verification_token'] = token
             try:
                 send_email(
                     email,
                     f"Welcome to ServiceSync!\n\nYour verification token is:\n{token}\n\nEnter this token to activate your account."
                 )
-            except Exception as email_error:
-                db.close()
-                return render_template('register_view.html',
-                                       message=f"Account created, but email failed to send: {email_error}")
-
+            except Exception:
+                pass
+            db.close()
+            return redirect('/verify')
             db.commit()
             session['verification_token'] = token
+            try:
+                send_email(
+                    email,
+                    f"Welcome to ServiceSync!\n\nYour verification token is:\n{token}\n\nEnter this token to activate your account."
+                )
+            except Exception:
+                pass
+            db.close()
             return redirect('/verify')
 
         db.close()
@@ -437,12 +512,14 @@ def create_service_route():
     current_user = get_current_user()
     org_id = current_user['org_id']
     users, songs, _, _ = load_service_page_context(org_id=org_id)
+    leader_users = get_org_leaders(users)
 
     if request.method == 'GET':
         return render_template(
             'create_service_view.html',
             roles=SERVICE_ROLES,
             users=users,
+            leader_users=leader_users,
             songs=songs,
             message=None,
             form_data={'service_date': '', 'service_time': '09:00', 'leader_id': ''},
@@ -461,6 +538,7 @@ def create_service_route():
             'create_service_view.html',
             roles=SERVICE_ROLES,
             users=users,
+            leader_users=leader_users,
             songs=songs,
             message=str(error),
             form_data={
@@ -490,6 +568,7 @@ def create_service_route():
             'create_service_view.html',
             roles=SERVICE_ROLES,
             users=users,
+            leader_users=leader_users,
             songs=songs,
             message=create_result['message'],
             form_data={
@@ -504,9 +583,13 @@ def create_service_route():
         ), 400
 
     service_id = create_result['service_id']
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
+    sms_warnings = save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
     db.commit()
     db.close()
+
+    session['message'] = 'Service created.'
+    if sms_warnings:
+        session['message'] += ' ' + ' '.join(sms_warnings)
 
     return redirect(f'/services/{service_id}')
 
@@ -517,10 +600,12 @@ def services_route():
     org_id = current_user['org_id']
     member_filter = None if is_leader(current_user) else current_user['id']
     users, songs, services, selected_service = load_service_page_context(filter_user_id=member_filter, org_id=org_id)
+    leader_users = get_org_leaders(users)
     return render_template(
         'services_view.html',
         roles=SERVICE_ROLES,
         users=users,
+        leader_users=leader_users,
         songs=songs,
         services=services,
         selected_service=selected_service,
@@ -536,6 +621,7 @@ def service_detail_route(service_id):
     org_id = current_user['org_id']
     member_filter = None if is_leader(current_user) else current_user['id']
     users, songs, services, selected_service = load_service_page_context(service_id, filter_user_id=member_filter, org_id=org_id)
+    leader_users = get_org_leaders(users)
     if selected_service is None:
         return redirect('/services')
 
@@ -543,6 +629,7 @@ def service_detail_route(service_id):
         'services_view.html',
         roles=SERVICE_ROLES,
         users=users,
+        leader_users=leader_users,
         songs=songs,
         services=services,
         selected_service=selected_service,
@@ -560,6 +647,7 @@ def update_service_route(service_id):
         payload = parse_service_payload(request.form)
     except (ValueError, TypeError, json.JSONDecodeError) as error:
         users, songs, services, selected_service = load_service_page_context(service_id, org_id=org_id)
+        leader_users = get_org_leaders(users)
         if selected_service is None:
             return redirect('/services')
 
@@ -574,6 +662,7 @@ def update_service_route(service_id):
             'services_view.html',
             roles=SERVICE_ROLES,
             users=users,
+            leader_users=leader_users,
             songs=songs,
             services=services,
             selected_service=selected_service,
@@ -597,9 +686,13 @@ def update_service_route(service_id):
         payload['leader_id'],
         org_id,
     )
-    save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
+    sms_warnings = save_service_relations(cursor, service_id, payload['assignments'], payload['song_ids'], org_id, sender_id=current_user['id'])
     db.commit()
     db.close()
+
+    session['message'] = 'Service updated.'
+    if sms_warnings:
+        session['message'] += ' ' + ' '.join(sms_warnings)
 
     return redirect(f'/services/{service_id}')
 
@@ -642,11 +735,12 @@ def accept_request_route(musicians_id):
         db.close()
         session['message'] = 'Request not found.'
         return redirect('/my-requests')
-    accept_invitation(cursor, row['invitation_id'], row['org_id'])
-    update_musician_response(cursor, musicians_id, 1, row['org_id'])
+    accept_invitation(cursor, row['invitation_id'], row.get('org_name', ''))
+    update_musician_response(cursor, musicians_id, 1, row.get('org_name', ''))
+    delete_invitation(cursor, row['invitation_id'], row.get('org_name', ''))
     db.commit()
     db.close()
-    session['org_id'] = row['org_id']
+    session['org_id'] = row.get('org_name', session.get('org_id'))
     session['message'] = 'You have accepted the request.'
     return redirect('/my-requests')
 
@@ -656,13 +750,40 @@ def decline_request_route(musicians_id):
     current_user = get_current_user()
     db, cursor = get_connection()
     row = get_invitation_by_musicians_id(cursor, musicians_id, None)
-    if row is None or row['user_id'] != current_user['id']:
-        db.close()
-        session['message'] = 'Request not found.'
-        return redirect('/my-requests')
-    decline_invitation(cursor, row['invitation_id'], row['org_id'])
-    update_musician_response(cursor, musicians_id, 0, row['org_id'])
+    if row is not None and row['user_id'] == current_user['id']:
+        previous_status = row.get('invitation_status')
+        response_label = 'dropped out of' if previous_status == 'Accepted' else 'declined'
+        org_name = row.get('org_name', '')
+        service_id = row['service_id']
+        decline_invitation(cursor, row['invitation_id'], org_name)
+        update_musician_response(cursor, musicians_id, 0, org_name)
+    else:
+        org_name = None
+        assignment_row = None
+        for user_org in current_user.get('org_ids', []):
+            candidate = get_musician_row(cursor, musicians_id, user_org)
+            if candidate and candidate.get('user_id') == current_user['id']:
+                assignment_row = candidate
+                org_name = user_org
+                break
+
+        if assignment_row is None:
+            db.close()
+            session['message'] = 'Request not found.'
+            return redirect('/my-requests')
+
+        response_label = 'dropped out of'
+        service_id = assignment_row['service_id']
+        update_musician_response(cursor, musicians_id, 0, org_name)
+
     db.commit()
+    notify_service_leader_about_response(
+        cursor,
+        service_id,
+        org_name,
+        current_user['username'],
+        response_label,
+    )
     db.close()
     session['message'] = 'You have declined the request.'
     return redirect('/my-requests')
@@ -681,7 +802,7 @@ def rerequest_musician_route(service_id, musicians_id):
     result = send_service_invitation(
         current_user['id'],
         service_id,
-        org_id=org_id,
+        org_name=org_id,
         recipient_user_id=row['user_id'],
         musicians_id=musicians_id,
         instrument=row['instrument'],
@@ -696,36 +817,42 @@ def rerequest_musician_route(service_id, musicians_id):
     db.commit()
     db.close()
     session['message'] = 'Re-request sent.'
+    if result.get('text_warning'):
+        session['message'] += ' ' + result['text_warning']
     return redirect(f'/services/{service_id}')
 
 
 @app.route('/organization', methods=['GET'])
 @app.route('/organization-requests', methods=['GET'])
-@require_leader('/my-requests')
+@require_login
 def organization_requests_route():
     current_user = get_current_user()
     current_org = current_user['org_id']
-    if not current_org:
-        session['message'] = 'You must belong to an organization before sending organization requests.'
-        return redirect('/my-requests')
 
     db, cursor = get_connection()
-    candidate_users = [
-        serialize_user(user)
-        for user in list_users(cursor, None)
-        if user['id'] != current_user['id'] and not user_belongs_to_org(user, current_org)
-    ]
+    org_memberships = [dict(row) for row in get_user_org_memberships_with_roles(cursor, current_user['id'])]
+    leader_orgs = [row['org_name'] for row in org_memberships if (row.get('role') or '').lower() == 'leader']
+    can_manage = is_leader(current_user)
+    candidate_users = []
+    if current_org and can_manage:
+        candidate_users = [
+            serialize_user(user)
+            for user in list_users(cursor, None)
+            if user['id'] != current_user['id'] and not user_belongs_to_org(user, current_org)
+        ]
     organization_members = []
-    for user in list_users(cursor, current_org):
-        member = serialize_user(user)
-        member['is_current_user'] = user['id'] == current_user['id']
-        organization_members.append(member)
+    if current_org:
+        for user in list_users(cursor, current_org):
+            member = serialize_user(user)
+            member['is_current_user'] = user['id'] == current_user['id']
+            organization_members.append(member)
     db.close()
 
     return render_template(
         'organization_requests_view.html',
         current_user=current_user,
-        can_manage=True,
+        can_manage=can_manage,
+        leader_orgs=leader_orgs,
         current_org=current_org,
         candidate_users=candidate_users,
         organization_members=organization_members,
@@ -762,7 +889,8 @@ def send_organization_request_route():
 
     create_organization_request(cursor, current_user['id'], recipient['id'], current_org)
     db.commit()
-    if recipient.get('phone') and recipient.get('carrier'):
+    text_warning = None
+    if recipient['phone'] and recipient['carrier']:
         try:
             send_text(
                 recipient['phone'],
@@ -770,9 +898,98 @@ def send_organization_request_route():
                 f"You have a new organization request to join {current_org}."
             )
         except Exception as e:
-            print(f"Failed to send organization text notification: {e}")
+            text_warning = f"Text notification could not be sent to {recipient_username}: {e}"
     db.close()
     session['message'] = f'Organization request sent to {recipient_username}.'
+    if text_warning:
+        session['message'] += f' {text_warning}'
+    return redirect('/organization')
+
+
+@app.route('/organization/create', methods=['POST'])
+@require_login
+def create_organization_route():
+    current_user = get_current_user()
+    org_name = (request.form.get('org_name') or '').strip()
+    supplied_password = (request.form.get('creation_password') or '').strip()
+    expected_password = get_org_creation_password()
+
+    if not org_name:
+        session['message'] = 'Organization name is required.'
+        return redirect('/organization')
+    if not expected_password:
+        session['message'] = 'Organization creation is not configured on this instance.'
+        return redirect('/organization')
+    if supplied_password != expected_password:
+        session['message'] = 'Organization creation password is incorrect.'
+        return redirect('/organization')
+
+    db, cursor = get_connection()
+    create_organization(cursor, org_name)
+    add_user_to_org(cursor, current_user['id'], org_name)
+    set_org_member_role(cursor, org_name, current_user['id'], 'leader')
+    db.commit()
+
+    refreshed_user = get_user_by_id(cursor, current_user['id'])
+    session['org_ids'] = get_user_org_memberships(refreshed_user)
+    session['org_id'] = org_name
+    session['role'] = 'leader'
+    session['org_role'] = 'leader'
+    db.close()
+
+    session['message'] = f'Organization "{org_name}" created. You are now a leader in this organization.'
+    return redirect('/organization')
+
+
+@app.route('/organization/delete', methods=['POST'])
+@require_login
+def delete_organization_route():
+    current_user = get_current_user()
+    current_org = current_user['org_id']
+    selected_org = (request.form.get('delete_org_name') or '').strip() or current_org
+
+    db, cursor = get_connection()
+    org_memberships = [dict(row) for row in get_user_org_memberships_with_roles(cursor, current_user['id'])]
+    leader_orgs = [row['org_name'] for row in org_memberships if (row.get('role') or '').lower() == 'leader']
+
+    if not selected_org:
+        db.close()
+        session['message'] = 'You must choose an organization to delete.'
+        return redirect('/organization')
+    if selected_org not in leader_orgs:
+        db.close()
+        session['message'] = 'Only a leader for the selected organization can delete it.'
+        return redirect('/organization')
+
+    confirmations = [
+        (request.form.get(f'confirm_name_{index}') or '').strip()
+        for index in range(1, 6)
+    ]
+    if any(value != selected_org for value in confirmations):
+        db.close()
+        session['message'] = 'All 5 confirmation fields must exactly match the selected organization name.'
+        return redirect('/organization')
+
+    if get_org_member_role(cursor, selected_org, current_user['id']) != 'leader':
+        db.close()
+        session['message'] = 'Only a leader in that organization can delete it.'
+        return redirect('/organization')
+
+    delete_organization(cursor, selected_org)
+    db.commit()
+
+    refreshed_user = get_user_by_id(cursor, current_user['id'])
+    remaining_orgs = get_user_org_memberships(refreshed_user)
+    next_org = current_org if current_org in remaining_orgs else (remaining_orgs[0] if remaining_orgs else None)
+    next_role = get_org_member_role(cursor, next_org, current_user['id']) if next_org else None
+
+    session['org_ids'] = remaining_orgs
+    session['org_id'] = next_org
+    session['role'] = next_role
+    session['org_role'] = next_role
+    db.close()
+
+    session['message'] = f'Organization "{selected_org}" and all related data were deleted.'
     return redirect('/organization')
 
 
@@ -799,7 +1016,7 @@ def update_organization_member_role_route(user_id):
         session['message'] = 'Use another leader account to change your own organization role.'
         return redirect('/organization')
 
-    set_role(cursor, user_id, desired_role)
+    set_org_member_role(cursor, current_org, user_id, desired_role)
     db.commit()
     db.close()
     session['message'] = f"{target_user['username']} is now a {desired_role}."
@@ -826,8 +1043,6 @@ def remove_organization_member_route(user_id):
 
     updated_memberships = remove_user_from_org(cursor, user_id, current_org)
     delete_organization_requests_for_user_org(cursor, user_id, current_org)
-    if not updated_memberships:
-        set_role(cursor, user_id, 'member')
     db.commit()
     db.close()
     session['message'] = f"Removed {target_user['username']} from {current_org}."
@@ -846,7 +1061,7 @@ def accept_organization_request_route(request_id):
         return redirect('/my-requests')
 
     add_user_to_org(cursor, current_user['id'], request_row['org_name'])
-    update_organization_request_status(cursor, request_id, 'Accepted')
+    delete_organization_request(cursor, request_id)
     db.commit()
     db.close()
 
@@ -913,11 +1128,13 @@ def profile_route():
     current_user = get_current_user()
     db, cursor = get_connection()
     user_row = get_user_by_id(cursor, current_user['id'])
+    org_memberships = [dict(row) for row in get_user_org_memberships_with_roles(cursor, current_user['id'])]
     db.close()
     return render_template(
         'profile_view.html',
         current_user=current_user,
         user=user_row,
+        org_memberships=org_memberships,
         can_manage=is_leader(current_user),
         message=session.pop('message', None),
     )
@@ -1046,7 +1263,7 @@ def edit_song_route(song_id):
         db.close()
         return redirect('/songs')
 
-    update_song(cursor, song_id, title, artist, key, tempo, youtube_url, chords_data, lyrics_data, org_id=org_id)
+    update_song(cursor, song_id, title, artist, key, tempo, youtube_url, chords_data, lyrics_data, org_name=org_id)
     db.commit()
     db.close()
     session['message'] = f'\u201c{title}\u201d updated successfully.'
@@ -1071,9 +1288,10 @@ def delete_song_route(song_id):
 @app.route('/song/<int:song_id>/chords.pdf')
 @require_login
 def get_chords_pdf(song_id):
+    current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    cursor.execute("SELECT chords_pdf FROM songs WHERE song_id = ?", (song_id,))
-    row = cursor.fetchone()
+    row = get_song_by_id(cursor, song_id, org_id)
     db.close()
     if row and row['chords_pdf']:
         return send_file(io.BytesIO(row['chords_pdf']), mimetype='application/pdf', as_attachment=True, download_name=f'song_{song_id}_chords.pdf')
@@ -1083,9 +1301,10 @@ def get_chords_pdf(song_id):
 @app.route('/song/<int:song_id>/lyrics.pdf')
 @require_login
 def get_lyrics_pdf(song_id):
+    current_user = get_current_user()
+    org_id = current_user['org_id']
     db, cursor = get_connection()
-    cursor.execute("SELECT lyrics_pdf FROM songs WHERE song_id = ?", (song_id,))
-    row = cursor.fetchone()
+    row = get_song_by_id(cursor, song_id, org_id)
     db.close()
     if row and row['lyrics_pdf']:
         return send_file(io.BytesIO(row['lyrics_pdf']), mimetype='application/pdf', as_attachment=True, download_name=f'song_{song_id}_lyrics.pdf')

@@ -71,20 +71,30 @@ def set_user_org_memberships(cursor, user_id: int, org_values):
 
 
 def add_user_to_org(cursor, user_id: int, org_id: str):
+    from features.organizations.organizations_model import add_org_member
+    cleaned_org = (org_id or '').strip()
+    if not cleaned_org:
+        return
+    # Keep users.org_id JSON in sync
     user_row = get_user_by_id(cursor, user_id)
     memberships = get_user_org_memberships(user_row)
-    cleaned_org = (org_id or '').strip()
-    if cleaned_org and cleaned_org not in memberships:
+    if cleaned_org not in memberships:
         memberships.append(cleaned_org)
     set_user_org_memberships(cursor, user_id, memberships)
+    # Also write to organization_members (authoritative)
+    add_org_member(cursor, cleaned_org, user_id)
 
 
 def remove_user_from_org(cursor, user_id: int, org_id: str):
+    from features.organizations.organizations_model import remove_org_member
+    cleaned_org = (org_id or '').strip()
+    # Keep users.org_id JSON in sync
     user_row = get_user_by_id(cursor, user_id)
     memberships = get_user_org_memberships(user_row)
-    cleaned_org = (org_id or '').strip()
-    updated_memberships = [membership for membership in memberships if membership != cleaned_org]
+    updated_memberships = [m for m in memberships if m != cleaned_org]
     set_user_org_memberships(cursor, user_id, updated_memberships)
+    # Also remove from organization_members
+    remove_org_member(cursor, cleaned_org, user_id)
     return updated_memberships
 
 
@@ -107,8 +117,7 @@ def create_users_table(cursor):
         carrier TEXT,
         
         password TEXT NOT NULL,
-        
-        role TEXT NOT NULL DEFAULT 'member',
+
         org_id TEXT DEFAULT NULL,
         
         is_verified INTEGER NOT NULL DEFAULT 0,
@@ -137,7 +146,7 @@ def create_user(cursor, username: str, email: str, password: str, first_name: st
 
     cursor.execute('''
     INSERT INTO users (username, first_name, last_name, email, password, org_id)
-    VALUES (?, ?, ?, ?, ?, ?)    
+    VALUES (?, ?, ?, ?, ?, ?)
     ''', (username, first_name or None, last_name or None, email, hashed_password, serialized_orgs))
     
     return cursor.lastrowid
@@ -155,7 +164,7 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
 
 def authenticate_user(cursor, username: str, password: str, org_id: str = None):
     cursor.execute('''
-    SELECT id, username, password, role, is_verified, org_id
+    SELECT id, username, password, is_verified, org_id
     FROM users 
     WHERE username = ?
     ''', (username,))
@@ -170,10 +179,16 @@ def authenticate_user(cursor, username: str, password: str, org_id: str = None):
         memberships = normalize_org_memberships(user['org_id'])
         active_org = str(org_id) if org_id and str(org_id) in memberships else (memberships[0] if memberships else None)
 
+        active_org_role = None
+        if active_org is not None:
+            from features.organizations.organizations_model import get_org_member_role
+            active_org_role = get_org_member_role(cursor, active_org, user['id'])
+
         return {
             'id': user['id'],
             'username': user['username'],
-            'role': user['role'],
+            'role': active_org_role,
+            'org_role': active_org_role,
             'is_verified': user['is_verified'],
             'org_id': active_org,
             'org_ids': memberships,
@@ -199,15 +214,31 @@ def get_user_by_id(cursor, user_id: int):
     return cursor.fetchone()
 
 def list_users(cursor, org_id: str = None):
-    cursor.execute('''
-    SELECT id, username, first_name, last_name, email, role, org_id
-    FROM users
-    ORDER BY username COLLATE NOCASE ASC
-    ''')
-    rows = cursor.fetchall()
     if org_id is None:
-        return rows
-    return [row for row in rows if user_belongs_to_org(row, org_id)]
+        cursor.execute('''
+        SELECT id, username, first_name, last_name, email, org_id
+        FROM users
+        ORDER BY username COLLATE NOCASE ASC
+        ''')
+        return cursor.fetchall()
+    # Use organization_members table (authoritative) with fallback
+    try:
+        cursor.execute('''
+        SELECT u.id, u.username, u.first_name, u.last_name, u.email, om.role AS role, om.role AS org_role, u.org_id
+        FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE om.org_name = ?
+        ORDER BY u.username COLLATE NOCASE ASC
+        ''', (org_id,))
+        rows = cursor.fetchall()
+    except Exception:
+        cursor.execute('''
+        SELECT id, username, first_name, last_name, email, org_id
+        FROM users
+        ORDER BY username COLLATE NOCASE ASC
+        ''')
+        rows = [row for row in cursor.fetchall() if user_belongs_to_org(row, org_id)]
+    return rows
 
 def update_password(cursor, user_id: int, new_password: str):
     new_hashed = hash_password(new_password)
@@ -254,33 +285,35 @@ def update_carrier(cursor, user_id: int, carrier: str):
     ''', (carrier, user_id))
 
 def set_role(cursor, user_id: int, new_role: str, org_id: str = None):
-    if org_id is not None:
-        user = get_user_by_id(cursor, user_id)
-        if not user or not user_belongs_to_org(user, org_id):
-            return
-
-    cursor.execute('''
-    UPDATE users
-    SET role = ? 
-    WHERE id = ?
-    ''', (new_role, user_id))
+    if org_id is None:
+        raise ValueError('set_role requires an organization context.')
+    from features.organizations.organizations_model import set_org_member_role
+    set_org_member_role(cursor, org_id, user_id, new_role)
 
 def promote_to_leader(cursor, admin_id: int, user_id: int, org_id: str = 'default'):
     admin = get_user_by_id(cursor, admin_id)
-    if not admin or admin['role'].lower() != 'admin':
-        raise ValueError('Only admins can promote users to leader.')
+    if not admin:
+        raise ValueError('Only leaders can promote users to leader.')
 
     target_user = get_user_by_id(cursor, user_id)
     if not target_user:
         raise ValueError('User not found in this organization.')
 
-    enforce_org_membership = bool(org_id and org_id != 'default')
-    if enforce_org_membership and not user_belongs_to_org(admin, org_id):
-        raise ValueError('Only admins can promote users to leader.')
-    if enforce_org_membership and not user_belongs_to_org(target_user, org_id):
+    target_org = org_id or get_primary_org(target_user)
+    if not target_org:
         raise ValueError('User not found in this organization.')
 
-    set_role(cursor, user_id, 'leader', org_id if enforce_org_membership else None)
+    from features.organizations.organizations_model import user_in_org
+    from features.organizations.organizations_model import get_org_member_role
+
+    if not user_in_org(cursor, admin_id, target_org):
+        raise ValueError('Only leaders can promote users to leader.')
+    if get_org_member_role(cursor, target_org, admin_id) != 'leader':
+        raise ValueError('Only leaders can promote users to leader.')
+    if not user_in_org(cursor, user_id, target_org):
+        raise ValueError('User not found in this organization.')
+
+    set_role(cursor, user_id, 'leader', target_org)
 
 def delete_user(cursor, user_id: int):
     cursor.execute('''

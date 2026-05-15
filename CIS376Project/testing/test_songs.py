@@ -18,10 +18,10 @@ def test_valid_song():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
-    cursor.execute('SELECT * FROM songs')
+    cursor.execute('SELECT * FROM org_1_songs')
     rows = cursor.fetchall()
     assert len(rows) == 1
 
@@ -29,10 +29,10 @@ def test_get_song_by_id():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
-    row = get_song_by_id(cursor, 1)
+    row = get_song_by_id(cursor, 1, 'org-1')
 
     assert row['title'] == 'Amazing Grace'
     assert row['artist'] == 'Chris Tomlin'
@@ -41,10 +41,10 @@ def test_get_song_by_title():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
-    results = search_song(cursor, 'Amazing')
+    results = search_song(cursor, 'Amazing', 'org-1')
 
     assert len(results) == 1
     assert results[0][1] == 'Amazing Grace'
@@ -53,10 +53,10 @@ def test_get_song_by_artist():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
-    results = search_song(cursor, 'Chris')
+    results = search_song(cursor, 'Chris', 'org-1')
 
     assert len(results) == 1
     assert results[0][2] == 'Chris Tomlin'
@@ -65,12 +65,12 @@ def test_list_songs():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     create_song(cursor, 'How He Loves', 'Chris Tomlin', 'C',
-                80, 'youtube.com/howheloves')
+                80, 'youtube.com/howheloves', org_name='org-1')
     db.commit()
 
-    rows = list_songs(cursor)
+    rows = list_songs(cursor, 'org-1')
 
     assert len(rows) == 2
     assert rows[0][1] == 'Amazing Grace'
@@ -79,7 +79,7 @@ def test_list_songs():
 def test_search_song_not_found():
     db, cursor = setup_db()
 
-    results = search_song(cursor, 'Nothing')
+    results = search_song(cursor, 'Nothing', 'org-1')
 
     assert len(results) == 0
 
@@ -87,10 +87,10 @@ def test_special_character():
     db, cursor = setup_db()
 
     create_song(cursor, "He's Amazing", 'Chris Tomlin', 'C',
-                80, 'youtube.com')
+                80, 'youtube.com', org_name='org-1')
     db.commit()
 
-    results = search_song(cursor, "He's")
+    results = search_song(cursor, "He's", 'org-1')
 
     assert len(results) == 1
     assert results[0][1] == "He's Amazing"
@@ -99,16 +99,16 @@ def test_default_tempo_none():
     db, cursor = setup_db()
 
     song_id = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'C',
-                None, 'youtube.com')
+                None, 'youtube.com', org_name='org-1')
     db.commit()
 
     assert song_id is not None
 
-    cursor.execute("SELECT default_tempo FROM songs WHERE song_id = ?", (song_id,))
+    cursor.execute("SELECT default_tempo FROM org_1_songs WHERE song_id = ?", (song_id,))
     row = cursor.fetchone()
     assert row['default_tempo'] is None
 
-    results = search_song(cursor, 'Amazing')
+    results = search_song(cursor, 'Amazing', 'org-1')
 
     assert len(results) == 1
     assert results[0]['default_tempo'] is None
@@ -116,10 +116,10 @@ def test_default_tempo_none():
 def test_duplicate_song():
     db, cursor = setup_db()
 
-    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
+    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G', org_name='org-1')
     db.commit()
 
-    result = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G')
+    result = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G', org_name='org-1')
 
     assert result is None
 
@@ -127,16 +127,15 @@ def test_update_song():
     db, cursor = setup_db()
 
     song_id = create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
     update_song(cursor, song_id, 'How He Loves Us',
                 'Chris Tomlin', 'G', 120,
-                'youtube.com/howhelovesus', 'hhl.pdf', 'hhl_lyrics.pdf')
+                'youtube.com/howhelovesus', 'hhl.pdf', 'hhl_lyrics.pdf', org_name='org-1')
     db.commit()
 
-    cursor.execute('''SELECT title, artist FROM songs 
-    WHERE song_id = ?''', (1,))
+    cursor.execute('''SELECT title, artist FROM org_1_songs WHERE song_id = ?''', (1,))
     rows = cursor.fetchone()
 
     assert rows[0] == 'How He Loves Us'
@@ -145,13 +144,13 @@ def test_delete_song():
     db, cursor = setup_db()
 
     create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G',
-                120, 'youtube.com/amazinggrace')
+                120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
-    delete_song(cursor, 1)
+    delete_song(cursor, 1, 'org-1')
     db.commit()
 
-    deleted_song = get_song_by_id(cursor, 1)
+    deleted_song = get_song_by_id(cursor, 1, 'org-1')
 
     assert deleted_song is None
 
@@ -160,20 +159,20 @@ def test_sql_injection_prevention_songs():
     db, cursor = setup_db()
 
     # Create a test song
-    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G', 120, 'youtube.com/amazinggrace')
+    create_song(cursor, 'Amazing Grace', 'Chris Tomlin', 'G', 120, 'youtube.com/amazinggrace', org_name='org-1')
     db.commit()
 
     # Test normal search works
-    results = search_song(cursor, 'Amazing')
+    results = search_song(cursor, 'Amazing', 'org-1')
     assert len(results) == 1
 
     # Test SQL injection attempt doesn't work
     malicious_search = "' OR '1'='1"
-    results = search_song(cursor, malicious_search)
+    results = search_song(cursor, malicious_search, 'org-1')
     # Should return empty results, not all songs
     assert len(results) == 0
 
     # Test another injection attempt
     malicious_search2 = "%' UNION SELECT * FROM users --"
-    results = search_song(cursor, malicious_search2)
+    results = search_song(cursor, malicious_search2, 'org-1')
     assert len(results) == 0

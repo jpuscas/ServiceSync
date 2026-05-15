@@ -1,7 +1,7 @@
 from database.connection import get_connection
 from features.songs.songs_model import list_songs, search_song
 
-def perform_song_search(query, org_id, cursor=None):
+def perform_song_search(query, org_name, cursor=None):
     managed_connection = cursor is None
     db = None
     if managed_connection:
@@ -9,7 +9,7 @@ def perform_song_search(query, org_id, cursor=None):
 
     try:
         query = (query or '').strip()
-        results = search_song(cursor, query, org_id) if query else list_songs(cursor, org_id)
+        results = search_song(cursor, query, org_name) if query else list_songs(cursor, org_name)
 
         song_list = []
         for row in results:

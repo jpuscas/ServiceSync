@@ -3,6 +3,7 @@ import pytest
 from database.schema import create_database
 from features.services.services_model import (create_service, get_service_by_type, list_services,
     search_service, update_service, delete_service)
+from features.users.users_model import create_user
 
 def setup_db():
     db = sqlite3.connect(':memory:')
@@ -10,6 +11,7 @@ def setup_db():
     cursor = db.cursor()
 
     create_database(cursor)
+    create_user(cursor, 'leader_user', 'leader@example.com', 'password')
 
     db.commit()
     return db, cursor
@@ -18,10 +20,10 @@ def test_valid_service():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '3/8/2026', '9:30 AM', 1)
+                   '3/8/2026', '9:30 AM', 1, org_name='org-1')
     db.commit()
 
-    cursor.execute('SELECT * FROM services')
+    cursor.execute('SELECT * FROM org_1_services')
     rows = cursor.fetchall()
     assert len(rows) == 1
 
@@ -29,11 +31,10 @@ def test_normalized_input():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '9:30', 1)
+                   '2026-03-08', '9:30', 1, org_name='org-1')
     db.commit()
 
-    cursor.execute('''SELECT service_date, service_time FROM services 
-           WHERE service_id = ?''', (1,))
+    cursor.execute('SELECT service_date, service_time FROM org_1_services WHERE service_id = ?', (1,))
     row = cursor.fetchone()
 
     assert row['service_date'] == '2026-03-08'
@@ -44,25 +45,25 @@ def test_invalid_date_handling():
 
     with pytest.raises(ValueError):
         create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026/03/08', '9:30', 1)
+                   '2026/03/08', '9:30', 1, org_name='org-1')
 
 def test_invalid_time_handling():
     db, cursor = setup_db()
 
     with pytest.raises(ValueError):
         create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '9:99', 1)
+                   '2026-03-08', '9:99', 1, org_name='org-1')
 
 def test_get_service_by_type():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08','09:30', 1)
+                   '2026-03-08','09:30', 1, org_name='org-1')
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-15', '09:30', 1)
+                   '2026-03-15', '09:30', 1, org_name='org-1')
     db.commit()
 
-    rows = get_service_by_type(cursor, 'Worship')
+    rows = get_service_by_type(cursor, 'Worship', 'org-1')
 
     assert len(rows) == 2
     assert rows[0]['service_name'] == 'Sunday Worship'
@@ -72,12 +73,12 @@ def test_list_services():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     create_service(cursor, 'Youth Group', 'Youth',
-                   '2026-03-08', '18:30', 1)
+                   '2026-03-08', '18:30', 1, org_name='org-1')
     db.commit()
 
-    rows = list_services(cursor)
+    rows = list_services(cursor, 'org-1')
 
     assert len(rows) == 2
     assert rows[0]['service_name'] == 'Sunday Worship'
@@ -87,10 +88,10 @@ def test_search_service_by_name():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
-    results = search_service(cursor, 'Sunday')
+    results = search_service(cursor, 'Sunday', 'org-1')
 
     assert len(results) == 1
     assert results[0]['service_name'] == 'Sunday Worship'
@@ -99,10 +100,10 @@ def test_search_service_by_case():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
-    results = search_service(cursor, 'sunday')
+    results = search_service(cursor, 'sunday', 'org-1')
 
     assert len(results) == 1
     assert results[0]['service_name'] == 'Sunday Worship'
@@ -110,7 +111,7 @@ def test_search_service_by_case():
 def test_search_service_not_found():
     db, cursor = setup_db()
 
-    results = search_service(cursor, "Nothing")
+    results = search_service(cursor, "Nothing", 'org-1')
 
     assert len(results) == 0
 
@@ -118,14 +119,14 @@ def test_order_services():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-15', '09:30', 1)
+                   '2026-03-15', '09:30', 1, org_name='org-1')
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '11:30', 2)
+                   '2026-03-08', '11:30', 1, org_name='org-1')
     db.commit()
 
-    rows = list_services(cursor)
+    rows = list_services(cursor, 'org-1')
 
     assert len(rows) == 3
     assert rows[0][3] == '2026-03-08' and rows[0][4] == '09:30'
@@ -136,15 +137,14 @@ def test_update_service():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
     update_service(cursor, 1, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '10:00', 1)
+                   '2026-03-08', '10:00', 1, org_name='org-1')
     db.commit()
 
-    cursor.execute('''SELECT service_name, service_time FROM services 
-        WHERE service_id = ?''', (1,))
+    cursor.execute('SELECT service_name, service_time FROM org_1_services WHERE service_id = ?', (1,))
     rows = cursor.fetchone()
 
     assert rows['service_time'] == '10:00'
@@ -154,16 +154,16 @@ def test_update_service_ignores_wrong_org():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1, org_id='org-1')
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
     results = update_service(cursor, 1, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '10:00', 1, org_id='org-2')
+                   '2026-03-08', '10:00', 1, org_name='org-2')
     db.commit()
 
     assert results == []
 
-    cursor.execute('SELECT service_time FROM services WHERE service_id = ?', (1,))
+    cursor.execute('SELECT service_time FROM org_1_services WHERE service_id = ?', (1,))
     row = cursor.fetchone()
     assert row['service_time'] == '09:30'
 
@@ -171,22 +171,22 @@ def test_delete_service():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
-    delete_service(cursor, 1)
+    delete_service(cursor, 1, 'org-1')
     db.commit()
 
-    deleted_service = get_service_by_type(cursor, 'Worship')
+    deleted_service = get_service_by_type(cursor, 'Worship', 'org-1')
 
     assert deleted_service == []
 
 def test_delete_nonexistant_service():
     db, cursor = setup_db()
-    delete_service(cursor, 1)
+    delete_service(cursor, 1, 'org-1')
     db.commit()
 
-    deleted_service = get_service_by_type(cursor, 'Worship')
+    deleted_service = get_service_by_type(cursor, 'Worship', 'org-1')
 
     assert deleted_service == []
 
@@ -194,27 +194,27 @@ def test_full_service_test():
     db, cursor = setup_db()
 
     create_service(cursor, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:30', 1)
+                   '2026-03-08', '09:30', 1, org_name='org-1')
     db.commit()
 
-    services = get_service_by_type(cursor, 'Worship')
+    services = get_service_by_type(cursor, 'Worship', 'org-1')
     assert len(services) == 1
     assert services[0][1] == 'Sunday Worship'
     assert services[0][3] == '2026-03-08'
     assert services[0][4] == '09:30'
 
-    service_list = list_services(cursor)
+    service_list = list_services(cursor, 'org-1')
     assert len(service_list) == 1
     assert service_list[0][4] == '09:30'
 
     update_service(cursor, 1, 'Sunday Worship', 'Worship',
-                   '2026-03-08', '09:45', 1)
+                   '2026-03-08', '09:45', 1, org_name='org-1')
     db.commit()
 
-    new_service = list_services(cursor)
+    new_service = list_services(cursor, 'org-1')
     assert new_service[0][4] == '09:45'
 
-    delete_service(cursor, 1)
+    delete_service(cursor, 1, 'org-1')
     db.commit()
 
 def test_sql_injection_prevention_services():

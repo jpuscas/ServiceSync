@@ -7,17 +7,19 @@ def has_role(user, role_name):
         return False
 
     if isinstance(user, dict):
-        current_role = user.get('role', '')
+        current_role = user.get('org_role') if user.get('org_role') is not None else user.get('role', '')
     else:
-        current_role = getattr(user, 'role', '')
+        current_role = getattr(user, 'org_role', None)
+        if current_role is None:
+            current_role = getattr(user, 'role', '')
 
     return str(current_role).lower() == str(role_name).lower()
 
-def set_member_role(user_id, new_role):
+def set_member_role(user_id, new_role, org_id):
     db, cursor = get_connection()
 
     try:
-        set_role(cursor, user_id, new_role)
+        set_role(cursor, user_id, new_role, org_id)
         db.commit()
 
         return {

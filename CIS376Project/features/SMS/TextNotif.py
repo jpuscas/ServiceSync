@@ -1,4 +1,5 @@
 import os
+import re
 import smtplib
 from email.message import EmailMessage
 
@@ -16,6 +17,35 @@ CARRIER_SMS_DOMAINS = {
 }
 
 
+def normalize_phone_number(phone_number):
+    if phone_number is None:
+        return ''
+    return re.sub(r'\D', '', str(phone_number))
+
+
+def normalize_carrier(carrier):
+    if carrier is None:
+        return ''
+
+    carrier_key = str(carrier).strip().lower()
+    carrier_key = carrier_key.replace('&', 'and')
+    carrier_key = carrier_key.replace('-', '')
+    carrier_key = carrier_key.replace(' ', '')
+
+    carrier_aliases = {
+        'atandt': 'att',
+        'att': 'att',
+        'tmobile': 'tmobile',
+        'tmobileus': 'tmobile',
+        'verizonwireless': 'verizon',
+        'boostmobile': 'boost',
+        'cricketwireless': 'cricket',
+        'xfinitymobile': 'xfinity',
+    }
+
+    return carrier_aliases.get(carrier_key, carrier_key)
+
+
 def send_text(phone_number, carrier, message):
     smtp_host = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     smtp_port = int(os.getenv("MAIL_PORT", "587"))
@@ -30,12 +60,16 @@ def send_text(phone_number, carrier, message):
     if not message:
         raise ValueError("Message is required.")
 
-    carrier_key = carrier.strip().lower()
+    normalized_phone = normalize_phone_number(phone_number)
+    if not normalized_phone:
+        raise ValueError("Phone number is required.")
+
+    carrier_key = normalize_carrier(carrier)
     domain = CARRIER_SMS_DOMAINS.get(carrier_key)
     if not domain:
         raise ValueError(f"Unsupported carrier: {carrier}")
 
-    recipient = f"{phone_number}@{domain}"
+    recipient = f"{normalized_phone}@{domain}"
 
     email = EmailMessage()
     email["Subject"] = ""  # SMS gateways usually ignore subject

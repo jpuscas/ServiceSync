@@ -1,5 +1,6 @@
 CIS376Project/project.db
 .env
+.org_creation_password.txt
 **/__pycache__/
 *.pyc
 *.pyo

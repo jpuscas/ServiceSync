@@ -210,9 +210,7 @@
             <div class="topbar-meta">
                 <a href="/">Home</a>
                 <a href="/services">Services</a>
-                {% if can_manage %}
-                    <a href="/organization">Organization</a>
-                {% endif %}
+                <a href="/organization">Organization</a>
             </div>
         </div>
 
@@ -262,9 +260,11 @@
                     <div class="request-actions">
                         <span class="status-badge badge-pending">Pending</span>
                         <form method="POST" action="/requests/{{ req.musicians_id }}/accept">
+                            <input type="hidden" name="org_name" value="{{ req.org_name }}">
                             <button type="submit" class="btn-accept">Accept</button>
                         </form>
                         <form method="POST" action="/requests/{{ req.musicians_id }}/decline">
+                            <input type="hidden" name="org_name" value="{{ req.org_name }}">
                             <button type="submit" class="btn-decline">Decline</button>
                         </form>
                         <a class="btn-view" href="/services/{{ req.service_id }}">View Service</a>

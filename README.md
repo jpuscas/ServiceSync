@@ -253,10 +253,8 @@ The application includes verified regression coverage for authentication, servic
 
 ## Future Developement
 
-1. Email notifications for service or organization requests
-2. Text notifications for service or organization requests
-3. Organization Creation (anyone can create a organization)
-4. Have an organization table that will allow for better multi-organization capabilities
+1. Text notifications for service or organization requests
+
 
 ## Authors
 

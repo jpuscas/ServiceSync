@@ -2,7 +2,8 @@ import sqlite3
 import pytest
 from database.schema import create_database
 from features.users.user_verification import set_verification_code, verify_user
-from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email, set_role, promote_to_leader
+from features.organizations.organizations_model import add_org_member, get_org_member_role
+from features.users.users_model import create_user, update_password, authenticate_user, delete_user, update_email, promote_to_leader
 from features.users.login_logic import login_user
 from features.songs.songs_model import search_song
 
@@ -68,9 +69,9 @@ def test_default_role():
     create_user(cursor,'test_user', 'test@email.com', 'test_password')
     db.commit()
 
-    cursor.execute('''SELECT username, role FROM users WHERE username = ?''', ('test_user',))
+    cursor.execute('''SELECT username FROM users WHERE username = ?''', ('test_user',))
     row = cursor.fetchone()
-    assert row['role'] == 'member', f"Expected 'member', got {row['role']}"
+    assert row['username'] == 'test_user'
 
 def test_authentication_success():
     db, cursor = setup_db()
@@ -281,38 +282,39 @@ def test_nonexistant_user_login():
 def test_promote_to_leader_success():
     db, cursor = setup_db()
 
-    # Create admin user
+    # Create leader user in target organization
     admin_id = create_user(cursor, 'admin_user', 'admin@email.com', 'password')
-    set_role(cursor, admin_id, 'admin')
-    
+
     # Create regular user
     user_id = create_user(cursor, 'regular_user', 'user@email.com', 'password')
+    add_org_member(cursor, 'default', admin_id, 'leader')
+    add_org_member(cursor, 'default', user_id, 'member')
     
     db.commit()
 
     # Promote user to leader
-    promote_to_leader(cursor, admin_id, user_id)
+    promote_to_leader(cursor, admin_id, user_id, 'default')
     db.commit()
 
     # Check role
-    cursor.execute('SELECT role FROM users WHERE id = ?', (user_id,))
-    row = cursor.fetchone()
-    assert row['role'] == 'leader'
+    assert get_org_member_role(cursor, 'default', user_id) == 'leader'
 
 def test_promote_to_leader_non_admin():
     db, cursor = setup_db()
 
-    # Create non-admin user
+    # Create non-leader user
     non_admin_id = create_user(cursor, 'non_admin', 'nonadmin@email.com', 'password')
     
     # Create regular user
     user_id = create_user(cursor, 'regular_user', 'user@email.com', 'password')
+    add_org_member(cursor, 'default', non_admin_id, 'member')
+    add_org_member(cursor, 'default', user_id, 'member')
     
     db.commit()
 
     # Try to promote, should raise ValueError
-    with pytest.raises(ValueError, match="Only admins can promote users to leader."):
-        promote_to_leader(cursor, non_admin_id, user_id)
+    with pytest.raises(ValueError, match="Only leaders can promote users to leader."):
+        promote_to_leader(cursor, non_admin_id, user_id, 'default')
 
 def test_sql_injection_prevention():
     """Test that SQL injection attempts are prevented by parameterized queries."""

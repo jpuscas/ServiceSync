@@ -1,5 +1,4 @@
 from .invitations_model import (
-    create_invitations_table,
     create_invitation,
     get_invitation_by_musicians_id,
     get_invitations_by_user,
